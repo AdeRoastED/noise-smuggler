@@ -316,6 +316,14 @@
     persist();
   }
 
+  function starReveal(n, silent) {
+    var box = $('sheetStars'); box.textContent = '';
+    for (var i = 0; i < 3; i++) {
+      var sp = document.createElement('span'); sp.textContent = i < n ? '\u2605' : '\u2606'; sp.className = 'st' + (i < n ? ' on' : ' off');
+      if (!reduced() && !silent) { sp.style.animationDelay = (0.25 + i * 0.28) + 's'; sp.classList.add('pop'); if (i < n) setTimeout(function (k) { return function () { if (S && S.result && S.result.win) { tone(523 * Math.pow(1.26, k), .18, 'triangle', .14); } }; }(i), (250 + i * 280)); }
+      box.appendChild(sp);
+    }
+  }
   function finish(silent) {
     try { window.dispatchEvent(new CustomEvent('ns:result')); } catch (e) {}
     var ev = S.ev, lv = S.lv;
@@ -333,7 +341,7 @@
       var newWave = WAVES.filter(function (w) { return w.need > starsBefore && w.need <= totalStars(); })[0];
       sheet.classList.add('win');
       $('sheetTitle').textContent = 'Mission complete!';
-      $('sheetStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      starReveal(stars, silent);
       $('sheetText').textContent = S.moves + ' taps (par ' + lv.par + '). ' + (stars === 3 ? 'Smooth smuggling.' : 'Try for par to get all three stars.') + (newWave ? ' New wave style unlocked: ' + newWave.name + '!' : '') + (S.mode === 'campaign' && LEVELS[S.i + 1] && LEVELS[S.i + 1].world !== lv.world ? ' World complete! Next: ' + worldOf(LEVELS[S.i + 1]).name + '.' : '') + (S.mode === 'daily' ? ' Come back tomorrow for a new one.' : '');
       $('sheetNext').classList.remove('hidden');
       $('sheetNext').textContent = S.mode === 'custom' ? (S.from === 'editor' ? 'Share link' : 'Menu') : S.mode === 'endless' ? 'Next' : (S.mode === 'daily' || S.i >= LEVELS.length - 1 ? 'Menu' : 'Next');
@@ -537,6 +545,13 @@
       var ph = reduced() ? 0 : (timeNow % 1.3) / 1.3;
       ctx.strokeStyle = 'rgba(255,207,90,' + (1 - ph) + ')'; ctx.lineWidth = cs * .07; ctx.beginPath(); ctx.arc(0, 0, cs * (.4 + .3 * ph), 0, TAU); ctx.stroke();
       ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = cs * .06; ctx.beginPath(); ctx.arc(0, 0, cs * .47, 0, TAU); ctx.stroke();
+      // pointing hand that taps down on the mirror
+      var tap = reduced() ? 0 : Math.max(0, Math.sin(timeNow * 4.8)) * cs * .1;
+      ctx.save(); ctx.translate(cs * .16, cs * .34 + tap); ctx.rotate(-.35);
+      ctx.fillStyle = '#ffe3c0'; ctx.strokeStyle = 'rgba(40,20,10,.55)'; ctx.lineWidth = Math.max(1.5, cs * .03);
+      rr(-cs * .07, -cs * .02, cs * .14, cs * .3, cs * .06); ctx.fill(); ctx.stroke();
+      rr(-cs * .06, -cs * .17, cs * .12, cs * .22, cs * .06); ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
     if (rot && S.kfocus === mi) { ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, cs * .05); ctx.setLineDash([cs * .1, cs * .08]); ctx.beginPath(); ctx.arc(0, 0, cs * .47, 0, TAU); ctx.stroke(); ctx.setLineDash([]); }
     ctx.rotate(ang);
@@ -689,6 +704,29 @@
     }
     ctx.drawImage(vigCache.cv, 0, 0, L.W * cs, L.H * cs);
   }
+  /* lighting: a soft pool of the world's colour around the sound source plus contact shadows,
+     rendered once per level/size into one layer and copied (cheap on ordinary Android phones) */
+  var lightCache = { key: '', cv: null };
+  function drawLit(L, th) {
+    var key = th.wave + '|' + L.grid.map(function (r) { return r.map(function (c) { return c.t; }).join(''); }).join('/') + '|' + cs + '|' + dpr;
+    if (lightCache.key !== key) {
+      var w = Math.round(L.W * cs * dpr), h = Math.round(L.H * cs * dpr), cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      var g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var src = null, x, y;
+      for (y = 0; y < L.H && !src; y++) for (x = 0; x < L.W; x++) if (L.grid[y][x].t === 'S') { src = { x: x, y: y }; break; }
+      if (src) {
+        var cx = (src.x + .5) * cs, cy = (src.y + .5) * cs, R = Math.max(L.W, L.H) * cs * .62, gr = g.createRadialGradient(cx, cy, 0, cx, cy, R);
+        gr.addColorStop(0, th.wave + '40'); gr.addColorStop(.5, th.wave + '12'); gr.addColorStop(1, th.wave + '00'); g.fillStyle = gr; g.fillRect(0, 0, L.W * cs, L.H * cs);
+      }
+      g.fillStyle = 'rgba(0,0,0,.22)';
+      for (y = 0; y < L.H; y++) for (x = 0; x < L.W; x++) {
+        var t = L.grid[y][x].t;
+        if (t === 'T' || t === 'Z' || t === 'H' || t === 'm' || t === 'n' || t === '/' || t === '\\' || t === 'S' || t === 'x') { g.beginPath(); g.ellipse((x + .5) * cs, (y + .86) * cs, cs * .3, cs * .08, 0, 0, TAU); g.fill(); }
+      }
+      lightCache = { key: key, cv: cv };
+    }
+    ctx.drawImage(lightCache.cv, 0, 0, L.W * cs, L.H * cs);
+  }
   function drawWave() {
     if (!S.ev) return;
     var tr = S.ev.trace, col = S.theme.wave, T = S.T, done = S.phase === 'result';
@@ -701,7 +739,7 @@
       var x0 = (c.px + .5) * cs, y0 = (c.py + .5) * cs, x1 = (c.x + .5) * cs, y1 = (c.y + .5) * cs;
       var ex = x0 + (x1 - x0) * prog, ey = y0 + (y1 - y0) * prog;
       var age = T - c.t, alpha = done ? .3 : (age < 1.2 ? 1 : Math.max(.3, 1.2 - (age - 1.2) * .4));
-      ctx.globalAlpha = alpha * .28; ctx.strokeStyle = col; ctx.lineWidth = cs * .3;
+      ctx.globalAlpha = alpha * .3; ctx.strokeStyle = col; ctx.lineWidth = cs * .34;
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.stroke();
       ctx.globalAlpha = alpha; ctx.lineWidth = cs * .1; ctx.strokeStyle = '#fff';
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.stroke();
@@ -753,6 +791,8 @@
     var got = 0; mine.forEach(function (l) { got += save.stars[l.id] || 0; });
     $('wdTitle').textContent = w.name + ' complete!';
     $('wdText').textContent = got + ' of ' + mine.length * 3 + ' stars in this world.' + (got === mine.length * 3 ? ' Perfect smuggling!' : ' Replay levels to collect the rest.');
+    var nxt = LEVELS[S.i + 1], nw = nxt ? WORLDS.filter(function (x) { return x.id === nxt.world; })[0] : null;
+    $('wdNext').textContent = nw ? 'On to ' + nw.name : 'Keep going'; wd.next = nw ? S.i + 1 : -1;
     $('worldDone').classList.remove('hidden'); wd.world = wid;
     try { $('wdNext').focus({ preventScroll: true }); } catch (e) {}
     var cv = $('wdCv'), g = cv.getContext('2d'), W = 300, H = 120, d = Math.min(window.devicePixelRatio || 1, 2);
@@ -792,6 +832,7 @@
       var c = L.grid[y][x];
       if (c.t === '#') drawWall(x, y);
     }
+    drawLit(L, th);
     drawAmbient();
     drawSourcePulse();
     drawWave();
@@ -865,6 +906,7 @@
 
   function frame(ts) {
     var dt = Math.min(0.05, (ts - lastTs) / 1000 || 0); lastTs = ts; timeNow = ts / 1000;
+    if (document.hidden) { requestAnimationFrame(frame); return; } // no drawing or simulation while the app is in the background
     if (current === 'game' && S) { update(dt); drawBoard(); }
     else if (current === 'menu') drawHero();
     requestAnimationFrame(frame);
@@ -980,7 +1022,7 @@
   $('btnRestart').addEventListener('click', restart);
   $('btnHint').addEventListener('click', hint);
   $('btnUndo').addEventListener('click', undo);
-  $('wdNext').addEventListener('click', hideWorldDone);
+  $('wdNext').addEventListener('click', function () { var n = wd.next; hideWorldDone(); if (n >= 0 && S && S.mode === 'campaign') loadLevel(n); });
   $('linkPrivacy').addEventListener('click', function (e) { e.preventDefault(); show('privacy'); });
   var ED = { W: 7, H: 8, g: [], tool: '#', built: false };
   var ED_TOOLS = [['.', '\u2715', 'Erase'], ['#', '\u2593', 'Wall'], ['>', '\u25b6', 'Sound right'], ['v', '\u25bc', 'Sound down'], ['<', '\u25c0', 'Sound left'], ['^', '\u25b2', 'Sound up'], ['T', '\u2605', 'Star'], ['Z', '\ud83d\ude34', 'Sleeper'], ['H', '\ud83d\udca4', 'Deep sleeper'], ['m', '\u2571', 'Mirror /'], ['n', '\u2572', 'Mirror \\'], ['x', '\u271a', 'Splitter'], ['p', '\u25ce', 'Portal']];

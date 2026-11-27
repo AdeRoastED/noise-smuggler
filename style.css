@@ -122,3 +122,16 @@ body.reduce{transition:none}
 #edPlay{flex:1;max-width:220px}
 .edgrid{width:min(100%,300px)}
 .edtool[data-tool="#"]{font-size:16px}
+
+/* satisfying results: stars pop in one after another */
+#sheetStars .st{display:inline-block}
+#sheetStars .pop{opacity:0;transform:scale(.2) rotate(-25deg);animation:starpop .45s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes starpop{to{opacity:1;transform:scale(1) rotate(0)}}
+#sheetStars .off{opacity:.45}
+/* first seconds: title drops in, buttons rise */
+#menu h1,#menu .logo{animation:titledrop .7s cubic-bezier(.2,1.4,.4,1) both}
+#menu button{animation:btnrise .5s ease-out both}
+#menu button:nth-of-type(2){animation-delay:.08s}#menu button:nth-of-type(3){animation-delay:.14s}#menu button:nth-of-type(4){animation-delay:.2s}#menu button:nth-of-type(5){animation-delay:.26s}
+@keyframes titledrop{from{opacity:0;transform:translateY(-24px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes btnrise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+body.reduce #menu h1,body.reduce #menu .logo,body.reduce #menu button,body.reduce #sheetStars .pop{animation:none;opacity:1;transform:none}

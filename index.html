@@ -9,17 +9,32 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Noise Smuggler">
 <title>Noise Smuggler</title>
+<meta name="color-scheme" content="dark"><meta name="format-detection" content="telephone=no">
+<meta property="og:type" content="website"><meta property="og:title" content="Noise Smuggler"><meta property="og:description" content="A sound-routing puzzle game. Wake the right person. Not everyone else."><meta property="og:image" content="icons/icon-512.png"><meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/favicon-64.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<noscript><p style="font:16px sans-serif;color:#fff;padding:20px">Noise Smuggler needs JavaScript to run.</p></noscript>
 <div id="app">
 
   <section id="menu" class="screen">
     <canvas id="hero" aria-hidden="true"></canvas>
     <div class="logo">
+      <svg id="mark" viewBox="0 0 200 200" width="84" height="84" role="img" aria-label="Noise Smuggler logo">
+        <defs><radialGradient id="mbg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#3b2d6b"/><stop offset="1" stop-color="#1d1733"/></radialGradient>
+        <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2c2"/><stop offset="1" stop-color="#ffb62e"/></linearGradient></defs>
+        <circle cx="100" cy="100" r="96" fill="url(#mbg)" stroke="#ffcf5a" stroke-width="4"/>
+        <g class="mw" fill="none" stroke="#7ff3e0" stroke-linecap="round"><path d="M22 70 q14 14 0 28" stroke-width="7"/><path d="M38 62 q22 22 0 44" stroke-width="6" opacity=".7"/><path d="M54 54 q30 30 0 60" stroke-width="5" opacity=".45"/></g>
+        <g transform="rotate(-45 112 66)"><rect x="82" y="52" width="60" height="28" rx="8" fill="url(#mg)" stroke="#6b3d00" stroke-width="3"/><rect x="88" y="57" width="26" height="6" rx="3" fill="#fff" opacity=".6"/></g>
+        <path class="mb" d="M112 82 L112 118" stroke="#7ff3e0" stroke-width="5" stroke-dasharray="2 9" stroke-linecap="round"/>
+        <g class="sl"><circle cx="112" cy="146" r="30" fill="#f2c9a0" stroke="#6b3d00" stroke-width="3"/>
+        <path d="M84 138 Q112 96 140 138 Z" fill="#e0407a" stroke="#6b3d00" stroke-width="3"/><circle cx="136" cy="112" r="8" fill="#fff" stroke="#6b3d00" stroke-width="2"/>
+        <path d="M98 148 q6 6 12 0 M118 148 q6 6 12 0" fill="none" stroke="#3a2a1a" stroke-width="3" stroke-linecap="round"/><ellipse cx="114" cy="162" rx="5" ry="4" fill="#a8483a"/></g>
+        <g class="zz" fill="#ffffff" font-family="Arial,sans-serif" font-weight="900"><text x="148" y="108" font-size="20">z</text><text x="162" y="88" font-size="26">Z</text></g>
+      </svg>
       <h1>Noise<br>Smuggler</h1>
       <p class="tag">Wake the right person.<br>Not everyone else.</p>
     </div>
@@ -27,25 +42,27 @@
       <button id="btnPlay" class="big">Play</button>
       <div class="row2">
         <button id="btnDaily" class="alt">Daily<small id="dailyBadge"></small></button>
-        <button id="btnEndless" class="alt">Endless</button>
+        <button id="btnWeekly" class="alt">Weekly<small id="weeklyBadge"></small></button>
       </div>
       <div class="row2">
+        <button id="btnEndless" class="alt small">Endless &amp; Master</button>
         <button id="btnLevels" class="alt small">Levels</button>
-        <button id="btnSettings" class="alt small">Settings</button>
       </div>
-      <div class="row2"><button id="btnCreate" class="ghost">Create a puzzle</button><button id="btnHow" class="ghost">How to play</button></div>
+      <div class="row3"><button id="btnSettings" class="ghost">Settings</button><button id="btnCreate" class="ghost">Create</button><button id="btnHow" class="ghost">How to play</button></div>
     </div>
+    <button id="progress" class="prog" aria-label="Open your profile"></button>
     <p class="studio">Adeba Studio &middot; plays fine with the sound off</p>
   </section>
 
   <section id="diff" class="screen hidden">
-    <header class="bar"><button id="diffBack" class="ghost">&larr; Back</button><h2>Endless</h2><span></span></header>
+    <header class="bar"><button id="diffBack" class="ghost">&larr; Back</button><h2>Endless &amp; Master</h2><span></span></header>
     <p class="hint">Unlimited fresh puzzles. Every one is checked to have a solution.</p>
     <div class="diffBtns">
       <button class="alt" data-diff="easy">Easy<small>Warm-up</small></button>
       <button class="alt" data-diff="medium">Medium<small>Decoy mirrors</small></button>
       <button class="alt" data-diff="hard">Hard<small>Splitters</small></button>
       <button class="alt" data-diff="expert">Expert<small>Big boards</small></button>
+      <button class="alt" id="btnMaster">Master<small id="masterNote">Gates, portals, deep sleepers</small></button>
     </div>
     <p id="statsLine" class="hint"></p>
   </section>
@@ -69,6 +86,8 @@
       <div class="setRow" id="rowRemoveAds" hidden><span>Remove ads</span><button id="setRemoveAds" class="alt small">Buy</button></div>
       <div class="setRow"><span>Back up progress</span><span><button id="setExport" class="alt small">Export</button> <button id="setImport" class="alt small">Import</button></span></div>
       <input id="impFile" type="file" accept=".json,application/json" hidden>
+      <div class="setRow codeRow"><span>Progress code<small>Short text you can keep. Type it on another device or after clearing your browser to continue from your stars.</small></span></div>
+      <div class="setRow codeRow"><input id="codeBox" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" placeholder="NS2-..." aria-label="Progress code"><span><button id="codeCopy" class="alt small">Show &amp; copy</button> <button id="codeUse" class="alt small">Use code</button></span></div>
       <div class="setRow"><span>Erase my progress</span><button id="setReset" class="alt small">Erase</button></div>
       <p class="links"><a href="#" id="linkPrivacy">Privacy</a> &middot; <a href="https://buymeacoffee.com/adebastudio" target="_blank" rel="noopener noreferrer">Support Adeba Studio</a></p>
       <p class="studio">Noise Smuggler 1.0 &middot; Adeba Studio</p>
@@ -114,7 +133,29 @@
       <p><strong>3. Wake the star target</strong> (gold ring) <strong>but not the sleepers.</strong> Wake a sleeper and you try again.</p>
       <p><strong>X splitter</strong> sends sound both ways. <strong>Range</strong> means the sound fades after that many tiles.</p>
       <p><strong>Deep sleepers</strong> (blue cap, badge like &le;4) only wake if the sound reaches them within that many tiles. Fainter sound slips right past them.</p>
-      <p><strong>Stars:</strong> solve with the fewest taps (par) for three. Hints are free but limited. Stars unlock new wave colors.</p>
+      <p><strong>One-way gates</strong> (gold arrow tiles) let sound through only in the direction the arrow points. From any other side they block it.</p>
+      <p><strong>Portals</strong> come in pairs. Sound that enters one comes out of the other, still going the same way.</p>
+      <p><strong>Stars are your score.</strong> Every tap counts. Finish in the fewest possible taps (the par shown on the result) for 3 stars, within 2 extra taps for 2 stars, anything else for 1. Replay any level to improve. Hints are free but limited. Stars unlock new wave colors.</p>
+      <p><strong>Progress code:</strong> in Settings you can copy a short code and type it back to continue from your stars, even on another device.</p>
+    </div>
+  </section>
+
+  <section id="profile" class="screen hidden">
+    <header class="bar"><button id="profileBack" class="ghost">&larr; Back</button><h2>Your profile</h2><span></span></header>
+    <div class="doc pf">
+      <div class="pfCard"><div class="pfRank" id="pfRank"></div><div class="pfBarWrap"><div id="pfBar"></div></div><p id="pfNext"></p></div>
+      <h3>Records</h3><div id="pfStats" class="pfStats"></div>
+      <h3>Sound collection</h3><p class="hint">Tap an unlocked sound to hear it and use it when you release the noise.</p><div id="pfSounds" class="pfGrid"></div>
+      <h3>Wave styles</h3><div id="pfWaves" class="pfGrid"></div>
+      <h3>Achievements</h3><div id="pfAch" class="pfAch"></div>
+    </div>
+  </section>
+
+  <section id="challenges" class="screen hidden">
+    <header class="bar"><button id="challengesBack" class="ghost">&larr; Back</button><h2>Challenges</h2><span></span></header>
+    <div class="doc pf">
+      <h3>Weekly Smuggler Challenge</h3><p class="hint" id="weeklyHead"></p><div id="weeklyList" class="wkList"></div>
+      <h3>Daily archive</h3><p class="hint">Missed a day? Play any of the last 14 daily puzzles whenever you like.</p><div id="archiveList" class="arList"></div>
     </div>
   </section>
 
@@ -123,8 +164,9 @@
     <div class="doc">
       <p><strong>Noise Smuggler</strong> by Adeba Studio does not collect, send or sell any personal data.</p>
       <p>Your progress (stars, records, settings) is saved only in your own browser using local storage. Clearing your browser data, or using Erase my progress in Settings, removes it. You can export a backup file in Settings and import it on any device.</p>
-      <p>The game makes no network requests while you play, uses no analytics, no cookies and no accounts, and never asks for the microphone. All sounds are generated on your device. The only link that leaves the game is the optional Support link, which opens only if you tap it.</p>
-      <p>If advertising or purchases are added in a future platform release, this page will be updated before that release.</p>
+      <p id="privNet">The game makes no network requests while you play, uses no analytics, no cookies and no accounts, and never asks for the microphone. All sounds are generated on your device. The only link that leaves the game is the optional Support link, which opens only if you tap it.</p>
+      <p id="privFuture">If advertising or purchases are added in a future platform release, this page will be updated before that release.</p>
+      <p id="privAds" hidden></p>
     </div>
   </section>
 
@@ -132,6 +174,7 @@
 <script src="core.js"></script>
 <script src="gen.js"></script>
 <script src="levels.js"></script>
+<script src="master.js"></script>
 <script src="monetization.js"></script>
 <script src="game.js"></script>
 </body>

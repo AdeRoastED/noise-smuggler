@@ -20,6 +20,7 @@
    m  rotatable mirror starting as /     n  rotatable mirror starting as \
    x  splitter: sound leaves on both sides (turns left and right)
    p  portal (exactly two per level): sound entering one leaves the other, still travelling the same way
+   R D L U  one-way gate (fixed): sound passes only if it is travelling right/down/left/up; from any other side it is blocked
    H  deep sleeper: only wakes if sound arrives within L.heavy steps (default 4); later (faint) sound passes straight through without waking it
   */
   function parse(level) {
@@ -80,6 +81,10 @@
         if (ct === 'T' || ct === 'Z') {
           var hk = ny * W + nx;
           if (!hitSet[hk]) { hitSet[hk] = 1; hits.push({ x: nx, y: ny, t: t + 1, kind: ct }); }
+          continue;
+        }
+        if (ct === 'R' || ct === 'D' || ct === 'L' || ct === 'U') { // one-way gate: sound passes only in the direction the arrow points; from any other side it is blocked
+          if (b.d === 'RDLU'.indexOf(ct)) next.push({ x: nx, y: ny, d: b.d });
           continue;
         }
         if (ct === 'p') { // portal: re-emerge from the partner portal, same direction

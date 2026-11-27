@@ -51,14 +51,14 @@
       else if (side === 2) { x = 1 + Math.floor(r() * (w - 2)); y = 0; d = 1; ch = 'v'; }
       else { x = 1 + Math.floor(r() * (w - 2)); y = h - 1; d = 3; ch = '^'; }
       g[y][x] = ch;
-      var path = {}; path[x + ',' + y] = 1;
+      var path = {}, pdir = {}; path[x + ',' + y] = 1;
       var ok = true, placed = 0, portalDone = false;
       var walk = function (maxLen) {
         var n = 1 + Math.floor(r() * maxLen), moved = 0;
         for (var i = 0; i < n; i++) {
           var nx = x + DIRS[d][0], ny = y + DIRS[d][1];
           if (!inb(nx, ny) || path[nx + ',' + ny]) break;
-          x = nx; y = ny; path[x + ',' + y] = 1; moved++;
+          x = nx; y = ny; path[x + ',' + y] = 1; pdir[x + ',' + y] = d; moved++;
         }
         return moved;
       };
@@ -95,7 +95,7 @@
           while (len < want) {
             var qx = cx + DIRS[sd][0], qy = cy + DIRS[sd][1];
             if (!inb(qx, qy) || path[qx + ',' + qy]) break;
-            cx = qx; cy = qy; len++;
+            cx = qx; cy = qy; len++; pdir[cx + ',' + cy] = sd;
           }
           if (len > 0) { g[cy][cx] = 'T'; path[cx + ',' + cy] = 1; okT++; }
         }
@@ -121,6 +121,12 @@
       };
       for (var zi = 0; zi < (spec.z || 0); zi++) { var zp = take(r() < 0.65 ? near : free) || take(free); if (zp) g[zp[1]][zp[0]] = 'Z'; }
       for (var hi = 0; hi < (spec.deep || 0); hi++) { var hp = take(r() < 0.7 ? near : free) || take(free); if (hp) g[hp[1]][hp[0]] = 'H'; }
+      if (spec.gates) { // one-way gates: half sit on the winning route (open in its direction), half are random blockers
+        var onp = []; Object.keys(pdir).forEach(function (k2) { var q2 = k2.split(','); if (g[+q2[1]][+q2[0]] === '.') onp.push([+q2[0], +q2[1], pdir[k2]]); });
+        var nOn = Math.ceil(spec.gates / 2);
+        for (var gi = 0; gi < nOn && onp.length; gi++) { var gp = onp.splice(Math.floor(r() * onp.length), 1)[0]; g[gp[1]][gp[0]] = 'RDLU'.charAt(gp[2]); path[gp[0] + ',' + gp[1]] = 1; }
+        for (gi = nOn; gi < spec.gates; gi++) { var rp = take(near.length && r() < 0.6 ? near : free) || take(free); if (rp) g[rp[1]][rp[0]] = 'RDLU'.charAt(Math.floor(r() * 4)); }
+      }
       for (var wi = 0; wi < (spec.walls || 0); wi++) { var wp = take(free); if (wp) g[wp[1]][wp[0]] = '#'; }
       for (var ei = 0; ei < (spec.extra || 0); ei++) { var ep = take(r() < 0.7 ? near : free) || take(free); if (ep) g[ep[1]][ep[0]] = 'm'; }
       return g.map(function (rw) { return rw.map(function (c) { return (c === 'm' || c === 'n') ? (r() < 0.5 ? 'm' : 'n') : c; }).join(''); });
@@ -161,6 +167,10 @@
       var L = Core.parse({ grid: grid }), res = Core.solve(L), cand = null;
       if (!useRange) {
         if (!accept(res, spec)) continue;
+        if (spec.gates) { // gates must genuinely matter: without them the puzzle has more (or shorter) answers
+          var plain = Core.solve(Core.parse({ grid: grid.map(function (rw) { return rw.replace(/[RDLU]/g, '.'); }) }));
+          if (!(plain.solutions.length > res.solutions.length || (plain.best && plain.best.flips < res.best.flips))) continue;
+        }
         cand = { grid: grid, range: 0, res: res };
       } else {
         if (res.solutions.length < 2) continue;

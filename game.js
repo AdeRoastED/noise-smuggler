@@ -6,7 +6,8 @@
 
   /* ---------- save ---------- */
   var KEY = 'adeba.noisesmuggler.v1';
-  var save = { stars: {}, muted: false, vol: 0.8, vib: true, music: true, skin: 'default', daily: {}, stats: { endless: 0 } };
+  var save = { stars: {}, muted: false, vol: 0.8, vib: true, music: true, skin: 'default', snd: 'default', daily: {}, weekly: {}, best: {}, seen: {}, mseed: 0, mhist: [], stats: { endless: 0, wins: 0, perfect: 0, taps: 0, master: 0, masterBest: 0, weeks: 0, bestStreak: 0, hints: 0, fails: 0 } };
+  function betterDaily(a, b) { return !b || a.stars > b.stars || (a.stars === b.stars && a.taps < b.taps); } // true when a is a better record than b
   function applySave(p) { // validate everything: a corrupted, hand-edited or imported save must never break the game
       if (p && typeof p === 'object') {
         if (p.stars && typeof p.stars === 'object') Object.keys(p.stars).forEach(function (k) { var v = p.stars[k]; if (/^\d+$/.test(k) && v >= 1 && v <= 3) save.stars[k] = v | 0; });
@@ -16,9 +17,15 @@
         if (typeof p.vib === 'boolean') save.vib = p.vib;
         if (typeof p.music === 'boolean') save.music = p.music;
         if (typeof p.skin === 'string' && /^[a-z]{2,12}$/.test(p.skin)) save.skin = p.skin;
-        if (p.daily && typeof p.daily === 'object') Object.keys(p.daily).forEach(function (k) { var v = p.daily[k]; if (/^\d{4}-\d{2}-\d{2}$/.test(k) && v && v.stars >= 1 && v.stars <= 3 && v.taps > 0) save.daily[k] = { stars: v.stars | 0, taps: v.taps | 0 }; });
+        if (p.daily && typeof p.daily === 'object') Object.keys(p.daily).forEach(function (k) { var v = p.daily[k]; if (/^\d{4}-\d{2}-\d{2}$/.test(k) && v && v.stars >= 1 && v.stars <= 3 && v.taps > 0 && betterDaily({ stars: v.stars | 0, taps: v.taps | 0 }, save.daily[k])) save.daily[k] = { stars: v.stars | 0, taps: v.taps | 0 }; });
         if (typeof p.draft === 'string' && /^7\.[a-m]{56}$/.test(p.draft)) save.draft = p.draft;
-        if (p.stats && p.stats.endless > 0) save.stats.endless = p.stats.endless | 0;
+        if (p.stats && typeof p.stats === 'object') Object.keys(save.stats).forEach(function (k) { var v = p.stats[k]; if (typeof v === 'number' && v >= 0 && v < 1e9) save.stats[k] = Math.max(save.stats[k] || 0, v | 0); });
+        if (typeof p.snd === 'string' && /^[a-z]{2,12}$/.test(p.snd)) save.snd = p.snd;
+        if (p.weekly && typeof p.weekly === 'object') Object.keys(p.weekly).forEach(function (k) { var v = p.weekly[k]; if (/^\d{4}-W\d{2}$/.test(k) && Array.isArray(v) && v.length === 5) { var a = v.map(function (x) { return x >= 1 && x <= 3 ? x | 0 : 0; }), o = save.weekly[k] || [0, 0, 0, 0, 0]; save.weekly[k] = a.map(function (x, i) { return Math.max(x, o[i] || 0); }); } });
+        if (p.best && typeof p.best === 'object') Object.keys(p.best).forEach(function (k) { var v = p.best[k]; if (/^\d+$/.test(k) && v >= 1 && v < 1000) save.best[k] = save.best[k] ? Math.min(save.best[k], v | 0) : v | 0; });
+        if (p.seen && typeof p.seen === 'object') Object.keys(p.seen).forEach(function (k) { if (/^[a-z0-9]{2,16}$/.test(k) && p.seen[k]) save.seen[k] = 1; });
+        if (Array.isArray(p.mhist)) save.mhist = p.mhist.filter(function (v) { return v === (v | 0) && v >= 0 && v < 100000; }).slice(-130);
+        if (typeof p.mseed === 'number' && p.mseed > 0 && p.mseed < 4294967296) save.mseed = p.mseed | 0;
       }
   }
   try { var raw = localStorage.getItem(KEY); if (raw) applySave(JSON.parse(raw)); } catch (e) {}
@@ -49,12 +56,30 @@
   };
   THEME.hotel.bg = '#1d1733'; THEME.palace.bg = '#25141f'; THEME.mansion.bg = '#101b1f'; THEME.space.bg = '#12142b'; THEME.museum.bg = '#1a1824'; THEME.camp.bg = '#0f1d15'; THEME.cinema.bg = '#1d0e14'; THEME.farm.bg = '#1c1a0e'; THEME.park.bg = '#1d0f22'; THEME.tower.bg = '#13121d';
   var BASE_BG = '#1c1630';
-  var WAVES = [
+  var WAVES = [ // unlocks are spread over the whole 750-star campaign
     { id: 'default', name: 'Classic', need: 0 },
-    { id: 'neon', name: 'Neon pink', need: 6, col: '#ff4fd8' },
-    { id: 'gold', name: 'Golden', need: 15, col: '#ffd23f' },
-    { id: 'ice', name: 'Ice', need: 30, col: '#aee9ff' },
-    { id: 'rainbow', name: 'Rainbow', need: 45 }
+    { id: 'neon', name: 'Neon pink', need: 9, col: '#ff4fd8' },
+    { id: 'gold', name: 'Golden', need: 40, col: '#ffd23f' },
+    { id: 'ice', name: 'Ice', need: 100, col: '#aee9ff' },
+    { id: 'rainbow', name: 'Rainbow', need: 200 },
+    { id: 'ember', name: 'Ember', need: 320, col: '#ff7a3d' },
+    { id: 'aurora', name: 'Aurora', need: 450, col: '#6dffb0' },
+    { id: 'violet', name: 'Midnight violet', need: 580, col: '#b58cff' },
+    { id: 'sunset', name: 'Sunset', need: 700, col: '#ffb36b' }
+  ];
+  var SOUNDS = [ // collectible release sounds, unlocked across the campaign
+    { id: 'default', name: 'World sound', need: 0, note: 'Each world has its own noise.' },
+    { id: 'burp', name: 'Royal burp', need: 6, note: 'Excuse you.' },
+    { id: 'cat', name: 'Angry cat', need: 24, note: 'It saw you looking.' },
+    { id: 'chicken', name: 'Screaming chicken', need: 60, note: 'Four notes of panic.' },
+    { id: 'trumpet', name: 'Broken trumpet', need: 110, note: 'Almost a tune.' },
+    { id: 'boing', name: 'Springy boing', need: 170, note: 'Bouncy, as promised.' },
+    { id: 'hiccup', name: 'Tiny hiccup', need: 235, note: 'Hic!' },
+    { id: 'seagull', name: 'Chip thief seagull', need: 305, note: 'It wants your lunch.' },
+    { id: 'goat', name: 'Dramatic goat', need: 385, note: 'Maaaaaa-ster of noise.' },
+    { id: 'squeak', name: 'Squeaky toy', need: 470, note: 'The dog is staring.' },
+    { id: 'whale', name: 'Lost whale', need: 570, note: 'Wrong ocean.' },
+    { id: 'kazoo', name: 'Victory kazoo', need: 680, note: 'For true legends.' }
   ];
   var SLEEPER_SUITS = ['#e0836b', '#6bb0e0', '#9be06b', '#d98be0', '#e0c46b'];
   var SKINS = ['#f3cba8', '#d9a17b', '#a8714c', '#f7dcc6', '#7d4e33'];
@@ -109,7 +134,18 @@
     oops: function () { tone(420, 0.55, 'sawtooth', 0.12, 90); },
     yay: function () { tone(660, 0.1, 'triangle', 0.16); tone(880, 0.16, 'triangle', 0.16, null, 0.09); },
     win: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.22, 'triangle', 0.16, null, i * 0.11); }); },
-    bump: function () { tone(110, 0.08, 'sine', 0.2, 60); }
+    bump: function () { tone(110, 0.08, 'sine', 0.2, 60); },
+    burp: function () { tone(120, 0.42, 'sawtooth', 0.2, 62); tone(95, 0.3, 'square', 0.08, 58, 0.08); noise(0.35, 0.05, 220); },
+    cat: function () { tone(520, 0.42, 'sawtooth', 0.1, 980); tone(980, 0.38, 'sawtooth', 0.1, 430, 0.3); tone(1020, 0.2, 'square', 0.04, 600, 0.12); },
+    chicken: function () { for (var i = 0; i < 4; i++) { tone(780 + i * 40, 0.09, 'sawtooth', 0.12, 1250 - i * 70, i * 0.12); tone(1180, 0.05, 'square', 0.04, 900, i * 0.12 + 0.03); } },
+    trumpet: function () { tone(392, 0.28, 'sawtooth', 0.13, 372); tone(392, 0.3, 'square', 0.05, 358, 0.01); tone(349, 0.38, 'sawtooth', 0.13, 262, 0.3); noise(0.2, 0.03, 1500, 0.3); },
+    boing: function () { tone(180, 0.5, 'sine', 0.22, 760); tone(360, 0.45, 'triangle', 0.08, 1100, 0.04); tone(300, 0.3, 'sine', 0.1, 150, 0.42); },
+    hiccup: function () { tone(520, 0.07, 'square', 0.1, 330); tone(560, 0.06, 'square', 0.09, 300, 0.2); },
+    seagull: function () { tone(1250, 0.2, 'sawtooth', 0.09, 1750); tone(1750, 0.3, 'sawtooth', 0.09, 900, 0.2); tone(1400, 0.2, 'sawtooth', 0.07, 1000, 0.5); },
+    goat: function () { for (var i = 0; i < 8; i++) tone(420 + (i % 2) * 50, 0.07, 'sawtooth', 0.11, 380, i * 0.045); tone(420, 0.3, 'sawtooth', 0.1, 330, 0.36); },
+    squeak: function () { tone(1400, 0.07, 'sine', 0.12, 2300); tone(1900, 0.09, 'sine', 0.1, 2700, 0.1); },
+    whale: function () { tone(150, 0.9, 'sine', 0.18, 330); tone(300, 0.9, 'sine', 0.07, 540, 0.05); tone(330, 0.7, 'sine', 0.1, 120, 0.8); },
+    kazoo: function () { [523, 659, 784, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.12, 'sawtooth', 0.09, f * 0.99, i * 0.1); tone(f * 2, 0.12, 'square', 0.025, null, i * 0.1); }); }
   };
   function sfx(n) { if (!save.muted && SFX[n]) SFX[n](); }
 
@@ -160,7 +196,7 @@
   var particles = [];
   var shakeT = 0;
   var hintsCache = {}; // hints used per puzzle this session (Restart must not refill them)
-  var SCREENS = ['menu', 'diff', 'levels', 'settings', 'game', 'privacy', 'howto', 'editor'];
+  var SCREENS = ['menu', 'diff', 'levels', 'settings', 'game', 'privacy', 'howto', 'editor', 'profile', 'challenges'];
   var current = 'menu';
   var Gen = window.NSGen, Mon = window.NSMonetization;
 
@@ -178,12 +214,18 @@
     if (id === 'menu') refreshMenu();
     if (id === 'diff') $('statsLine').textContent = save.stats.endless ? 'Endless puzzles solved: ' + save.stats.endless : '';
   }
-  function leaveGame(to) { hideWorldDone(); if (S && S.phase === 'playing') finish(true); if (S && S.mode === 'custom' && S.from === 'editor' && (!to || to === 'menu')) to = 'editor'; show(to || 'menu'); }
+  function leaveGame(to) { hideWorldDone(); if (S && S.phase === 'playing') finish(true); if (S && S.mode === 'custom' && S.from === 'editor' && (!to || to === 'menu')) to = 'editor'; if (S && (to || 'menu') === 'menu' && (S.mode === 'weekly' || S.from === 'archive')) { buildChallenges(); to = 'challenges'; } show(to || 'menu'); }
 
+  /* Expert worlds reuse a base world's floor, hat and sounds but have their own colours, music and name */
+  function baseW(id) { var w = WORLDS.filter(function (x) { return x.id === id; })[0]; return (w && w.base) || id; }
   function worldOf(lv) { return WORLDS.filter(function (w) { return w.id === lv.world; })[0] || WORLDS[0]; }
   function isUnlocked(i) { return UNLOCK_ALL || i === 0 || (save.stars[LEVELS[i - 1].id] || 0) > 0; }
   function cap1(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
-  function levelKey(lv, mode) { return mode === 'custom' ? 'p' + lv.code : mode === 'daily' ? 'd' + lv.daily : mode === 'endless' ? 'e' + lv.diff + lv.seed : 'c' + lv.id; }
+  function gridHash(rows) { var h = 5381, t = (rows || []).join('|'); for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); }
+  function adKey(lv, mode) { // identifies the exact puzzle for the ad schedule: a distinct puzzle counts once, a replay never counts
+    return mode === 'campaign' ? 'c' + lv.id : mode === 'daily' ? 'd' + lv.daily : mode === 'weekly' ? 'w' + lv.weekly : mode === 'master' ? 'm' + lv.mref : mode === 'endless' ? 'e' + gridHash(lv.grid) : 'x' + gridHash(lv.grid);
+  }
+  function levelKey(lv, mode) { return mode === 'weekly' ? 'w' + lv.weekly : mode === 'master' ? 'm' + lv.mref + '.' + lv.title : mode === 'custom' ? 'p' + lv.code : mode === 'daily' ? 'd' + lv.daily : mode === 'endless' ? 'e' + lv.diff + lv.seed : 'c' + lv.id; }
 
   function captionFor(lv, mode) {
     if (mode === 'campaign') {
@@ -191,6 +233,11 @@
       if (lv.id === 2) return lv.blurb + ' Stuck? Try Hint.';
       if (lv.id === 5) return lv.blurb + ' Some mirrors are decoys: leave them alone.';
       if (lv.id === 11) return 'New: the X splitter sends sound to both sides. ' + lv.blurb;
+      if (lv.id === 201) return 'New: one-way gates. The arrow shows the only direction sound can pass; from any other side the gate blocks it. Gates never turn, so plan your mirrors around them.';
+      if (lv.id === 81) return 'Expert shifts begin. Bigger boards, more mirrors, and often only one way through. ' + lv.blurb;
+      if (lv.id === 101) return 'Deep sleepers are back on the big boards: only sound arriving within 4 tiles wakes them. ' + lv.blurb;
+      if (lv.id === 121) return 'Portals are back on the big boards. Count the tiles: portals do not skip them. ' + lv.blurb;
+      if (lv.id === 161) return 'Everything at once. ' + lv.blurb;
       if (lv.id === 71) return 'Final world: every rule at once. ' + lv.blurb;
       if (lv.id === 61) return 'New: portals. Sound that enters one comes out of the other, still going the same way.';
       if (lv.id === 51) return 'New: deep sleepers (blue badge) only wake if sound reaches them within ' + 4 + ' tiles. Fainter sound slips right past.';
@@ -199,6 +246,7 @@
       return lv.blurb;
     }
     if (mode === 'custom') return lv.blurb;
+    if (mode === 'master') return 'Master puzzle (tier ' + lv.tier + '). Gates, portals and deep sleepers. Take your time.';
     var bits = [];
     if (lv.range) bits.push('Sound fades after ' + lv.range + ' tiles.');
     if (lv.grid.join('').indexOf('x') >= 0) bits.push('X splits sound to both sides.');
@@ -210,7 +258,7 @@
     hideWorldDone();
     var L = Core.parse(lv), key = levelKey(lv, o.mode);
     S = {
-      mode: o.mode, from: o.from, i: o.i || 0, lv: lv, L: L, theme: THEME[lv.world], world: worldOf(lv), key: key,
+      mode: o.mode, from: o.from, i: o.i || 0, wk: o.wk, wi: o.wi, lv: lv, L: L, theme: THEME[lv.world], world: worldOf(lv), key: key,
       state: L.init.slice(), moves: 0, phase: 'setup', ev: null, T: 0,
       hints: hintsCache[key] !== undefined ? hintsCache[key] : 3, hintMi: -1, kfocus: -1,
       tutorial: o.mode === 'campaign' && lv.id === 1 && !save.stars[1],
@@ -218,7 +266,7 @@
     };
     S.mirrorAng = L.init.map(function (v) { return v ? Math.PI / 4 : -Math.PI / 4; });
     particles = [];
-    $('lvlTitle').textContent = o.mode === 'campaign' ? lv.id + '. ' + lv.title : (o.mode === 'daily' ? 'Daily ' + lv.daily : (o.mode === 'custom' ? 'Custom puzzle' : 'Endless ' + cap1(lv.diff)));
+    $('lvlTitle').textContent = o.mode === 'campaign' ? lv.id + '. ' + lv.title : (o.mode === 'weekly' ? 'Weekly ' + (o.wi + 1) + '/5' : o.mode === 'master' ? lv.title : o.mode === 'daily' ? 'Daily ' + lv.daily : (o.mode === 'custom' ? 'Custom puzzle' : 'Endless ' + cap1(lv.diff)));
     $('lvlWorld').textContent = o.mode === 'custom' ? (o.from === 'editor' ? 'Your creation' : 'Made by a player') : S.world.name + (o.mode === 'campaign' ? '' : ' · ' + lv.title);
     $('caption').textContent = captionFor(lv, o.mode);
     $('stRange').textContent = lv.range ? 'Range ' + lv.range : '';
@@ -273,7 +321,7 @@
     S.hintMi = -1;
     S.ev = Core.evaluate(S.L, S.state);
     S.phase = 'playing'; S.T = 0; S.woken = {}; S.played = {}; S.shot = timeNow;
-    sfx(S.world.sound);
+    sfx(releaseSoundId());
     updateHud();
   }
 
@@ -285,18 +333,26 @@
 
   function restart() { if (S && S.phase !== 'playing') startLevel(S.lv, { mode: S.mode, i: S.i }); }
 
+  var rewarding = false;
   function hint() {
     if (!S || S.phase !== 'setup') return;
     if (S.hints <= 0) {
       if (Mon && Mon.canRewardHint()) {
-        Mon.rewardHint().then(function (ok) { if (ok && S) { S.hints = 1; updateHud(); hint(); } else toast('No hint this time.'); });
+        if (rewarding) return; rewarding = true;
+        var sess = S, skey = S.key;
+        Mon.rewardHint().then(function (ok) {
+          rewarding = false;
+          if (!ok) { if (S) toast('No hint this time.'); return; }
+          if (S && S === sess || (S && S.key === skey && S.phase === 'setup')) { S.hints = 1; updateHud(); hint(); }   // same puzzle (a Restart keeps the key)
+          else hintsCache[skey] = 1;                                                                                    // the player moved on: the earned hint waits for that puzzle, never lands on another
+        });
       } else toast('No hints left on this puzzle.');
       return;
     }
     var sol = S.lv.solution, diff = [];
     for (var i = 0; i < sol.length; i++) if (sol[i] !== S.state[i]) diff.push(i);
     if (!diff.length) { toast('Looks right already. Release it!'); return; }
-    S.hints--; hintsCache[S.key] = S.hints; S.hintMi = diff[0];
+    S.hints--; save.stats.hints++; hintsCache[S.key] = S.hints; S.hintMi = diff[0];
     toast('Try turning the glowing mirror.'); updateHud();
   }
 
@@ -313,6 +369,11 @@
       var old = save.daily[lv.daily];
       if (!old || stars > old.stars || (stars === old.stars && S.moves < old.taps)) save.daily[lv.daily] = { stars: stars, taps: Math.max(1, S.moves) };
     } else if (S.mode === 'endless') save.stats.endless++;
+    else if (S.mode === 'weekly') recordWeekly(stars);
+    else if (S.mode === 'master') save.stats.master++;
+    save.stats.wins++; save.stats.taps += Math.max(1, S.moves);
+    if (S.mode === 'campaign') { var bt = save.best[lv.id]; if (!bt || S.moves < bt) save.best[lv.id] = Math.max(1, S.moves); }
+    if (S.mode === 'daily') save.stats.bestStreak = Math.max(save.stats.bestStreak, streak());
     persist();
   }
 
@@ -326,7 +387,7 @@
   }
   function finish(silent) {
     try { window.dispatchEvent(new CustomEvent('ns:result')); } catch (e) {}
-    var ev = S.ev, lv = S.lv;
+    var ev = S.ev, lv = S.lv, ref0 = S;
     S.phase = 'result';
     var sheet = $('sheet');
     sheet.classList.remove('hidden', 'win', 'fail');
@@ -338,19 +399,20 @@
       delete hintsCache[S.key];
       var starsBefore = totalStars();
       recordWin(stars);
-      var newWave = WAVES.filter(function (w) { return w.need > starsBefore && w.need <= totalStars(); })[0];
+      try { if (Mon && Mon.noteWin) Mon.noteWin({ mode: S.mode, id: lv.id, key: adKey(lv, S.mode) }); } catch (e) {}
+      var rewards = rewardsBetween(starsBefore, totalStars()), fresh = checkAchievements(true);
       sheet.classList.add('win');
       $('sheetTitle').textContent = 'Mission complete!';
       starReveal(stars, silent);
-      $('sheetText').textContent = S.moves + ' taps (par ' + lv.par + '). ' + (stars === 3 ? 'Smooth smuggling.' : 'Try for par to get all three stars.') + (newWave ? ' New wave style unlocked: ' + newWave.name + '!' : '') + (S.mode === 'campaign' && LEVELS[S.i + 1] && LEVELS[S.i + 1].world !== lv.world ? ' World complete! Next: ' + worldOf(LEVELS[S.i + 1]).name + '.' : '') + (S.mode === 'daily' ? ' Come back tomorrow for a new one.' : '');
+      $('sheetText').textContent = S.moves + ' taps (par ' + lv.par + '). ' + (stars === 3 ? 'Smooth smuggling.' : 'Try for par to get all three stars.') + (rewards.length ? ' ' + rewards.map(function (r) { return r.kind === 'rank' ? 'New rank: ' + r.name + '!' : r.kind === 'sound' ? 'New sound: ' + r.name + '!' : 'New wave style: ' + r.name + '!'; }).join(' ') : '') + (fresh.length ? ' Achievement: ' + fresh[0].name + '.' : '') + (S.mode === 'campaign' && LEVELS[S.i + 1] && LEVELS[S.i + 1].world !== lv.world ? ' World complete! Next: ' + worldOf(LEVELS[S.i + 1]).name + '.' : '') + (S.mode === 'daily' ? ' Come back tomorrow for a new one.' : '') + (S.mode === 'campaign' && lv.id <= 3 ? ' Stars are your score: 3 stars for par (the fewest taps), 2 for up to 2 extra taps, 1 for any solve.' : '');
       $('sheetNext').classList.remove('hidden');
-      $('sheetNext').textContent = S.mode === 'custom' ? (S.from === 'editor' ? 'Share link' : 'Menu') : S.mode === 'endless' ? 'Next' : (S.mode === 'daily' || S.i >= LEVELS.length - 1 ? 'Menu' : 'Next');
+      $('sheetNext').textContent = S.mode === 'custom' ? (S.from === 'editor' ? 'Share link' : 'Menu') : (S.mode === 'endless' || S.mode === 'master') ? 'Next' : S.mode === 'weekly' ? (S.wi < 4 ? 'Next puzzle' : 'Finish week') : (S.mode === 'daily' || S.i >= LEVELS.length - 1 ? (S.from === 'archive' ? 'Back' : 'Menu') : 'Next');
       $('sheetAgain').textContent = 'Replay';
       $('sheetShare').classList.remove('hidden');
-      if (!silent) { sfx('win'); confetti(); buzz([20, 40, 20]); }
+      if (!silent) { sfx('win'); confetti(); buzz([20, 40, 20]); if (rewards.some(function (r) { return r.kind === 'rank'; })) { setTimeout(function () { if (S === ref0 && !reduced()) confetti(); }, 500); } }
       if (!silent && S.mode === 'campaign' && (!LEVELS[S.i + 1] || LEVELS[S.i + 1].world !== lv.world)) { var wdI = S.i; setTimeout(function () { if (S && S.mode === 'campaign' && S.i === wdI && S.phase === 'result') showWorldDone(lv.world); }, 900); }
     } else {
-      S.result = { win: false };
+      S.result = { win: false }; save.stats.fails++; if (save.stats.fails % 5 === 0) persist();
       sheet.classList.add('fail');
       $('sheetStars').textContent = '';
       $('sheetShare').classList.add('hidden');
@@ -384,23 +446,29 @@
     else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('Result copied'); }, function () { toast(text); });
     else toast(text);
   }
+  function baseUrl() { return /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ''; }
   function shareResult() {
     if (!S || !S.result || !S.result.win) return;
-    var lv = S.lv, st = S.result.stars;
-    var label = S.mode === 'custom' ? 'Custom puzzle' : S.mode === 'daily' ? 'Daily ' + lv.daily : (S.mode === 'endless' ? 'Endless ' + cap1(lv.diff) : 'Level ' + lv.id);
-    var link = S.mode === 'endless' ? challengeLink(lv) : (S.mode === 'custom' ? customLink(lv.code) : '');
-    var text = 'Noise Smuggler · ' + label + ' · ' + '★'.repeat(st) + '☆'.repeat(3 - st) + ' · ' + S.moves + ' taps (par ' + lv.par + ')' + (link ? '\nCan you beat it? ' + link : '');
-    var W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
-    var g = c.getContext('2d');
-    g.fillStyle = '#1c1630'; g.fillRect(0, 0, W, H); g.textAlign = 'center';
-    g.fillStyle = '#ffcf5a'; g.font = '900 84px system-ui,sans-serif'; g.fillText('Noise Smuggler', W / 2, 120);
-    g.fillStyle = '#7ff3e0'; g.font = '700 40px system-ui,sans-serif'; g.fillText(label, W / 2, 185);
+    var lv = S.lv, st = S.result.stars, rank = rankName(totalStars());
+    var label = S.mode === 'custom' ? 'Custom puzzle' : S.mode === 'daily' ? 'Daily ' + lv.daily : S.mode === 'weekly' ? 'Weekly puzzle ' + (S.wi + 1) : S.mode === 'master' ? 'Master puzzle' : (S.mode === 'endless' ? 'Endless ' + cap1(lv.diff) : 'Level ' + lv.id);
+    var u = baseUrl(), link = '';
+    if (u) link = S.mode === 'endless' ? challengeLink(lv) : S.mode === 'custom' ? customLink(lv.code) : S.mode === 'campaign' ? u + '?lv=' + lv.id : S.mode === 'daily' ? u + '?d=' + lv.daily : S.mode === 'master' && lv.mref ? u + '?m=' + lv.mref : '';
+    var best = S.mode === 'campaign' ? save.best[lv.id] : 0;
+    var text = 'Noise Smuggler \u00b7 ' + label + ' \u00b7 ' + '\u2605'.repeat(st) + '\u2606'.repeat(3 - st) + ' \u00b7 ' + S.moves + ' taps (par ' + lv.par + ')' + (best && best < S.moves ? ' \u00b7 my record ' + best : '') + ' \u00b7 ' + rank + (link ? '\nCan you beat me? ' + link : '');
+    var W = 1080, H = 1500, c = document.createElement('canvas'); c.width = W; c.height = H;
+    var g = c.getContext('2d'), F = '"NS Sans",system-ui,sans-serif';
+    var bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#2a2050'); bg.addColorStop(1, '#14102a'); g.fillStyle = bg; g.fillRect(0, 0, W, H); g.textAlign = 'center';
+    g.fillStyle = '#ffcf5a'; g.font = '800 92px ' + F; g.fillText('Noise Smuggler', W / 2, 125);
+    g.fillStyle = '#7ff3e0'; g.font = '700 42px ' + F; g.fillText(label, W / 2, 195);
     var bw = Math.min(960, W - 120), bh = bw * canvas.height / canvas.width;
-    if (bh > 800) { bh = 800; bw = bh * canvas.width / canvas.height; }
-    g.drawImage(canvas, (W - bw) / 2, 230, bw, bh);
-    g.fillStyle = '#ffcf5a'; g.font = '900 110px system-ui,sans-serif'; g.fillText('★'.repeat(st) + '☆'.repeat(3 - st), W / 2, 230 + bh + 135);
-    g.fillStyle = '#f4efff'; g.font = '700 44px system-ui,sans-serif'; g.fillText(S.moves + ' taps (par ' + lv.par + ')', W / 2, 230 + bh + 210);
-    g.fillStyle = '#a99fc9'; g.font = '600 32px system-ui,sans-serif'; g.fillText('Adeba Studio', W / 2, H - 50);
+    if (bh > 780) { bh = 780; bw = bh * canvas.width / canvas.height; }
+    g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 40; g.drawImage(canvas, (W - bw) / 2, 235, bw, bh); g.restore();
+    var y = 235 + bh;
+    g.fillStyle = '#ffcf5a'; g.font = '800 120px ' + F; g.fillText('\u2605'.repeat(st) + '\u2606'.repeat(3 - st), W / 2, y + 140);
+    g.fillStyle = '#f4efff'; g.font = '700 50px ' + F; g.fillText(S.moves + ' taps (par ' + lv.par + ')', W / 2, y + 215);
+    g.fillStyle = '#ff9de6'; g.font = '700 44px ' + F; g.fillText('Rank: ' + rank + (best ? '  \u00b7  Record ' + best + ' taps' : ''), W / 2, y + 285);
+    g.fillStyle = '#ffffff'; g.font = '800 46px ' + F; g.fillText(link ? 'Can you beat me?' : 'Think you can do better?', W / 2, y + 365);
+    g.fillStyle = '#a99fc9'; g.font = '600 32px ' + F; g.fillText('Adeba Studio', W / 2, H - 45);
     c.toBlob(function (blob) {
       try {
         if (blob && window.File && navigator.canShare) {
@@ -577,6 +645,19 @@
     ctx.restore();
   }
 
+  /* one-way gate: a plate with chevrons pointing the way sound may pass; side bars show it is shut from the other sides */
+  function drawGate(c) {
+    var cx = (c.x + .5) * cs, cy = (c.y + .5) * cs, ang = 'RDLU'.indexOf(c.t) * Math.PI / 2, r = cs * .38, rm = reduced();
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+    ctx.fillStyle = '#4a3a12'; rr(-r, -r, r * 2, r * 2, cs * .09); ctx.fill();
+    ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = Math.max(2, cs * .045); ctx.stroke();
+    ctx.fillStyle = '#ffcf5a'; ctx.fillRect(-r * .92, -r * .92, r * 1.84, cs * .06); ctx.fillRect(-r * .92, r * .92 - cs * .06, r * 1.84, cs * .06);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = cs * .08; ctx.strokeStyle = '#fff2c2';
+    var sh = rm ? 0 : ((timeNow * 1.4) % 1) * r * .3 - r * .15;
+    for (var i = -1; i <= 1; i += 2) { ctx.globalAlpha = i < 0 ? .55 : 1; ctx.beginPath(); ctx.moveTo(i * r * .3 + sh - r * .14, -r * .38); ctx.lineTo(i * r * .3 + sh + r * .14, 0); ctx.lineTo(i * r * .3 + sh - r * .14, r * .38); ctx.stroke(); }
+    ctx.restore();
+  }
+
   function drawPortal(c) {
     var cx = (c.x + .5) * cs, cy = (c.y + .5) * cs, rm = reduced(), idx = S.L.portals[0].x === c.x && S.L.portals[0].y === c.y ? 0 : 1;
     var hue = idx ? '#ff9de6' : '#7fd8ff', spin = rm ? 0 : timeNow * (idx ? -1.6 : 1.6);
@@ -609,15 +690,16 @@
     ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, -cs * .1, cs * .19, 0, TAU); ctx.fill();
     // headgear
     if (kind === 'T') {
-      if (S.lv.world === 'hotel') { ctx.fillStyle = th.hat; rr(-cs * .2, -cs * .33, cs * .4, cs * .14, cs * .05); ctx.fill(); ctx.fillStyle = '#ffcf5a'; ctx.fillRect(-cs * .2, -cs * .22, cs * .4, cs * .035); }
-      else if (S.lv.world === 'palace') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .17, -cs * .24); ctx.lineTo(-cs * .17, -cs * .4); ctx.lineTo(-cs * .08, -cs * .31); ctx.lineTo(0, -cs * .42); ctx.lineTo(cs * .08, -cs * .31); ctx.lineTo(cs * .17, -cs * .4); ctx.lineTo(cs * .17, -cs * .24); ctx.closePath(); ctx.fill(); }
-      else if (S.lv.world === 'mansion') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.arc(0, -cs * .2, cs * .2, Math.PI, 0); ctx.fill(); ctx.fillRect(-cs * .23, -cs * .21, cs * .46, cs * .04); }
-      else if (S.lv.world === 'museum') { ctx.fillStyle = th.hat; ctx.fillRect(-cs * .2, -cs * .26, cs * .4, cs * .05); ctx.fillStyle = '#e8e2cf'; ctx.beginPath(); ctx.arc(0, -cs * .26, cs * .15, Math.PI, 0); ctx.fill(); }
-      else if (S.lv.world === 'camp') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .27, -cs * .2); ctx.lineTo(-cs * .15, -cs * .38); ctx.lineTo(cs * .15, -cs * .38); ctx.lineTo(cs * .27, -cs * .2); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#d9b24c'; ctx.fillRect(-cs * .15, -cs * .26, cs * .3, cs * .03); }
-      else if (S.lv.world === 'park') { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-cs * .14, -cs * .46, cs * .28, cs * .24); ctx.fillRect(-cs * .22, -cs * .24, cs * .44, cs * .04); ctx.fillStyle = th.hat; ctx.fillRect(-cs * .14, -cs * .27, cs * .28, cs * .045); }
-      else if (S.lv.world === 'tower') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .2, -cs * .22); ctx.lineTo(0, -cs * .46); ctx.lineTo(cs * .2, -cs * .22); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(0, -cs * .3, cs * .045, 0, TAU); ctx.fill(); }
-      else if (S.lv.world === 'farm') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.ellipse(0, -cs * .22, cs * .3, cs * .07, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(0, -cs * .24, cs * .15, Math.PI, 0); ctx.fill(); }
-      else if (S.lv.world === 'cinema') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.arc(0, -cs * .21, cs * .19, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#222'; ctx.fillRect(-cs * .08, -cs * .38, cs * .16, cs * .1); }
+      var bwId = baseW(S.lv.world);
+      if (bwId === 'hotel') { ctx.fillStyle = th.hat; rr(-cs * .2, -cs * .33, cs * .4, cs * .14, cs * .05); ctx.fill(); ctx.fillStyle = '#ffcf5a'; ctx.fillRect(-cs * .2, -cs * .22, cs * .4, cs * .035); }
+      else if (bwId === 'palace') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .17, -cs * .24); ctx.lineTo(-cs * .17, -cs * .4); ctx.lineTo(-cs * .08, -cs * .31); ctx.lineTo(0, -cs * .42); ctx.lineTo(cs * .08, -cs * .31); ctx.lineTo(cs * .17, -cs * .4); ctx.lineTo(cs * .17, -cs * .24); ctx.closePath(); ctx.fill(); }
+      else if (bwId === 'mansion') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.arc(0, -cs * .2, cs * .2, Math.PI, 0); ctx.fill(); ctx.fillRect(-cs * .23, -cs * .21, cs * .46, cs * .04); }
+      else if (bwId === 'museum') { ctx.fillStyle = th.hat; ctx.fillRect(-cs * .2, -cs * .26, cs * .4, cs * .05); ctx.fillStyle = '#e8e2cf'; ctx.beginPath(); ctx.arc(0, -cs * .26, cs * .15, Math.PI, 0); ctx.fill(); }
+      else if (bwId === 'camp') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .27, -cs * .2); ctx.lineTo(-cs * .15, -cs * .38); ctx.lineTo(cs * .15, -cs * .38); ctx.lineTo(cs * .27, -cs * .2); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#d9b24c'; ctx.fillRect(-cs * .15, -cs * .26, cs * .3, cs * .03); }
+      else if (bwId === 'park') { ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-cs * .14, -cs * .46, cs * .28, cs * .24); ctx.fillRect(-cs * .22, -cs * .24, cs * .44, cs * .04); ctx.fillStyle = th.hat; ctx.fillRect(-cs * .14, -cs * .27, cs * .28, cs * .045); }
+      else if (bwId === 'tower') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.moveTo(-cs * .2, -cs * .22); ctx.lineTo(0, -cs * .46); ctx.lineTo(cs * .2, -cs * .22); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.arc(0, -cs * .3, cs * .045, 0, TAU); ctx.fill(); }
+      else if (bwId === 'farm') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.ellipse(0, -cs * .22, cs * .3, cs * .07, 0, 0, TAU); ctx.fill(); ctx.beginPath(); ctx.arc(0, -cs * .24, cs * .15, Math.PI, 0); ctx.fill(); }
+      else if (bwId === 'cinema') { ctx.fillStyle = th.hat; ctx.beginPath(); ctx.arc(0, -cs * .21, cs * .19, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#222'; ctx.fillRect(-cs * .08, -cs * .38, cs * .16, cs * .1); }
       else { ctx.strokeStyle = 'rgba(207,233,255,.9)'; ctx.fillStyle = 'rgba(160,210,255,.25)'; ctx.lineWidth = Math.max(1.5, cs * .04); ctx.beginPath(); ctx.arc(0, -cs * .1, cs * .25, 0, TAU); ctx.fill(); ctx.stroke(); }
     } else { // nightcap
       ctx.fillStyle = kind === 'H' ? '#8ab4ff' : '#f7f3ff'; ctx.beginPath(); ctx.moveTo(-cs * .19, -cs * .2); ctx.quadraticCurveTo(0, -cs * .5, cs * .26, -cs * .16); ctx.lineTo(cs * .19, -cs * .22); ctx.closePath(); ctx.fill();
@@ -642,24 +724,24 @@
     ctx.restore();
     if (kind === 'H') { // deep-sleeper badge: shows how close the sound must be
       ctx.save(); ctx.fillStyle = 'rgba(138,180,255,.95)'; rr(cx - cs * .25, cy + cs * .25, cs * .5, cs * .22, cs * .1); ctx.fill();
-      ctx.fillStyle = '#10173a'; ctx.font = '900 ' + Math.round(cs * .17) + 'px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#10173a'; ctx.font = '900 ' + Math.round(cs * .17) + 'px "NS Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('\u2264' + S.L.heavy, cx, cy + cs * .36); ctx.restore();
     }
     // floating marks
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (!awake) {
       var zt = rm ? 0.3 : (timeNow * 0.8 + idx * .37) % 1;
-      ctx.fillStyle = 'rgba(255,255,255,' + (1 - zt) * .9 + ')'; ctx.font = 'bold ' + Math.round(cs * .2) + 'px system-ui,sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,' + (1 - zt) * .9 + ')'; ctx.font = 'bold ' + Math.round(cs * .2) + 'px "NS Sans",system-ui,sans-serif';
       ctx.fillText('z', cx + cs * .22 + zt * cs * .08, cy - cs * .3 - zt * cs * .25);
-      ctx.font = 'bold ' + Math.round(cs * .15) + 'px system-ui,sans-serif';
+      ctx.font = 'bold ' + Math.round(cs * .15) + 'px "NS Sans",system-ui,sans-serif';
       ctx.fillText('z', cx + cs * .3 + zt * cs * .05, cy - cs * .2 - zt * cs * .18);
     } else if (kind === 'Z' || kind === 'H') {
       var a = Math.min(1, age * 6); ctx.globalAlpha = a;
       ctx.fillStyle = '#ff5c6c'; ctx.beginPath(); ctx.arc(cx + cs * .27, cy - cs * .36, cs * .13, 0, TAU); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = '900 ' + Math.round(cs * .2) + 'px system-ui,sans-serif'; ctx.fillText('!', cx + cs * .27, cy - cs * .355);
+      ctx.fillStyle = '#fff'; ctx.font = '900 ' + Math.round(cs * .2) + 'px "NS Sans",system-ui,sans-serif'; ctx.fillText('!', cx + cs * .27, cy - cs * .355);
       if (S.result && !S.result.win) { ctx.globalAlpha = 1; ctx.strokeStyle = '#ff5c6c'; ctx.lineWidth = Math.max(2, cs * .06); ctx.beginPath(); ctx.arc(cx, cy - cs * .03, cs * .46, 0, TAU); ctx.stroke(); }
     } else {
-      ctx.fillStyle = '#ffcf5a'; ctx.font = '900 ' + Math.round(cs * .22) + 'px system-ui,sans-serif';
+      ctx.fillStyle = '#ffcf5a'; ctx.font = '900 ' + Math.round(cs * .22) + 'px "NS Sans",system-ui,sans-serif';
       for (var s = 0; s < 3; s++) { var sa = (rm ? 0.2 : age) * 3 + s * 2.1, rr0 = cs * (.3 + .06 * s); ctx.globalAlpha = Math.max(0, 1 - age / 1.6); ctx.fillText('★', cx + Math.cos(sa) * rr0, cy - cs * .1 + Math.sin(sa) * rr0 * .8); }
     }
     ctx.restore();
@@ -673,8 +755,9 @@
   }
   /* ambient life: slow drifting motes (dust, fireflies, stars...) so every world feels alive */
   var AMB = { hotel: ['#ffffff', 0.35], palace: ['#ffd45e', 0.5], mansion: ['#a6ff8a', 0.5], space: ['#cfe9ff', 0.7], museum: ['#ffe3b0', 0.35], camp: ['#ffe08a', 0.6], cinema: ['#ff9a9a', 0.35], farm: ['#fff3a0', 0.5], park: ['#ff9de6', 0.5], tower: ['#ffe08a', 0.4] };
+  WORLDS.forEach(function (w) { if (!w.base) return; THEME[w.id] = Object.assign({}, THEME[w.base], w.theme || {}); MUSIC[w.id] = Object.assign({}, MUSIC[w.base], w.music || {}); AMB[w.id] = w.amb || AMB[w.base]; });
   function drawAmbient() {
-    var L = S.L, a = AMB[S.lv.world] || AMB.hotel, n = reduced() ? 8 : 18, seed = (L.W * 31 + L.H * 17 + (S.lv.id || 1) * 13) >>> 0;
+    var L = S.L, a = AMB[S.lv.world] || AMB[baseW(S.lv.world)] || AMB.hotel, n = reduced() ? 8 : 18, seed = (L.W * 31 + L.H * 17 + (S.lv.id || 1) * 13) >>> 0;
     ctx.save();
     for (var i = 0; i < n; i++) {
       var h1 = ((seed + i * 2654435761) >>> 0) / 4294967296, h2 = ((seed * 7 + i * 40503 + 977) >>> 0) / 4294967296, h3 = ((seed + i * 97) % 1000) / 1000;
@@ -827,7 +910,7 @@
     ctx.save(); ctx.translate(sx, sy);
     ctx.fillStyle = th.a; ctx.fillRect(0, 0, L.W * cs, L.H * cs);
     for (var y = 0; y < L.H; y++) for (var x = 0; x < L.W; x++) { if ((x + y) & 1) { ctx.fillStyle = th.b; ctx.fillRect(x * cs, y * cs, cs, cs); } }
-    drawFloor((S.lv && S.lv.world) || 'hotel', L);
+    drawFloor(baseW((S.lv && S.lv.world) || 'hotel'), L);
     for (y = 0; y < L.H; y++) for (x = 0; x < L.W; x++) {
       var c = L.grid[y][x];
       if (c.t === '#') drawWall(x, y);
@@ -841,6 +924,7 @@
       if (c.t === 'S') drawSource(c);
       else if (c.t === 'x') drawSplitter(c);
       else if (c.t === 'p') drawPortal(c);
+      else if (c.t === 'R' || c.t === 'D' || c.t === 'L' || c.t === 'U') drawGate(c);
       else if (c.t === '/' || c.t === '\\' || c.t === 'm' || c.t === 'n') drawMirror(c);
       else if (c.t === 'T') drawChar(c, 'T');
       else if (c.t === 'Z') drawChar(c, 'Z');
@@ -904,21 +988,216 @@
     S = sS; ctx = sctx; cs = scs; dpr = sdpr; shakeT = sShake;
   }
 
+  var drawCount = 0;
   function frame(ts) {
-    var dt = Math.min(0.05, (ts - lastTs) / 1000 || 0); lastTs = ts; timeNow = ts / 1000;
-    if (document.hidden) { requestAnimationFrame(frame); return; } // no drawing or simulation while the app is in the background
+    if (document.hidden) { setTimeout(function () { requestAnimationFrame(frame); }, 500); return; } // no drawing or simulation in the background, and only a slow wake-up poll
+    // battery: while nothing important moves (menu, setting up a puzzle, result screen) 30 frames a second is plenty
+    if (ts - lastTs < 30 && (current !== 'game' || !S || S.phase !== 'playing')) { requestAnimationFrame(frame); return; }
+    var dt = Math.min(0.05, (ts - lastTs) / 1000 || 0); lastTs = ts; timeNow = ts / 1000; drawCount++;
     if (current === 'game' && S) { update(dt); drawBoard(); }
     else if (current === 'menu') drawHero();
     requestAnimationFrame(frame);
+  }
+
+
+  /* =====================================================================================================
+     Retention systems (all offline, no server): ranks, collectible sounds, achievements, personal stats,
+     Weekly Smuggler Challenge, daily archive and Master Mode (a pool of pre-solved hard puzzles, each
+     shown in one of 8 rotations/reflections, so it never runs dry).
+     ===================================================================================================== */
+  var RANKS = [
+    ['Rookie', 0], ['Sneaky Intern', 12], ['Mumble Apprentice', 36], ['Quiet Courier', 72], ['Echo Runner', 120], ['Whisper Broker', 180],
+    ['Decibel Dealer', 250], ['Mirror Maestro', 330], ['Silent Agent', 420], ['Sound Sorcerer', 520], ['Noise Ninja', 630], ['Noise Legend', 720]
+  ];
+  function rankIndex(stars) { var r = 0; RANKS.forEach(function (x, i) { if (stars >= x[1]) r = i; }); return r; }
+  function rankName(stars) { return RANKS[rankIndex(stars)][0]; }
+  function soundUnlocked(id) { var s = SOUNDS.filter(function (x) { return x.id === id; })[0]; return !!s && totalStars() >= s.need; }
+  function releaseSoundId() { return (save.snd && save.snd !== 'default' && soundUnlocked(save.snd) && SFX[save.snd]) ? save.snd : S.world.sound; }
+  function rewardsBetween(a, b) { // everything newly unlocked when the star total goes from a to b
+    var out = [];
+    if (rankIndex(b) > rankIndex(a)) out.push({ kind: 'rank', name: rankName(b) });
+    SOUNDS.forEach(function (s) { if (s.need > a && s.need <= b) out.push({ kind: 'sound', name: s.name }); });
+    WAVES.forEach(function (w) { if (w.need > a && w.need <= b && w.need > 0) out.push({ kind: 'wave', name: w.name }); });
+    return out;
+  }
+  function perfectLevels() { var n = 0; LEVELS.forEach(function (l) { if (save.stars[l.id] === 3) n++; }); return n; }
+  function clearedLevels() { var n = 0; LEVELS.forEach(function (l) { if (save.stars[l.id] > 0) n++; }); return n; }
+  function worldPerfect() { return WORLDS.some(function (w) { var a = LEVELS.filter(function (l) { return l.world === w.id; }); return a.length && a.every(function (l) { return save.stars[l.id] === 3; }); }); }
+  function dailyCount() { return Object.keys(save.daily).length; }
+  var ACH = [
+    { id: 'first', name: 'First Whisper', desc: 'Complete any puzzle.', cur: function () { return Math.min(1, save.stats.wins); }, max: 1 },
+    { id: 'stars100', name: 'Hundred Stars', desc: 'Collect 100 stars.', cur: totalStars, max: 100 },
+    { id: 'perfect10', name: 'Par Prodigy', desc: 'Get 3 stars on 10 missions.', cur: perfectLevels, max: 10 },
+    { id: 'perfect60', name: 'Par Machine', desc: 'Get 3 stars on 60 missions.', cur: perfectLevels, max: 60 },
+    { id: 'clear80', name: 'Midnight Closer', desc: 'Clear the first 80 missions.', cur: function () { return LEVELS.slice(0, 80).filter(function (l) { return save.stars[l.id] > 0; }).length; }, max: 80 },
+    { id: 'clear250', name: 'Gate Keeper', desc: 'Clear all 250 missions.', cur: clearedLevels, max: 250 },
+    { id: 'worldperfect', name: 'World Perfectionist', desc: 'Get 3 stars on every mission of one world.', cur: function () { return worldPerfect() ? 1 : 0; }, max: 1 },
+    { id: 'streak3', name: 'Warm Up', desc: 'Keep a 3-day daily streak.', cur: function () { return Math.max(streak(), save.stats.bestStreak); }, max: 3 },
+    { id: 'streak7', name: 'Daily Habit', desc: 'Keep a 7-day daily streak.', cur: function () { return Math.max(streak(), save.stats.bestStreak); }, max: 7 },
+    { id: 'daily14', name: 'Fortnight Faithful', desc: 'Finish 14 daily puzzles.', cur: dailyCount, max: 14 },
+    { id: 'week1', name: 'Weekly Crown', desc: 'Finish a Weekly Smuggler Challenge.', cur: function () { return save.stats.weeks; }, max: 1 },
+    { id: 'week5', name: 'Five Crowns', desc: 'Finish 5 weekly challenges.', cur: function () { return save.stats.weeks; }, max: 5 },
+    { id: 'master5', name: 'Master Apprentice', desc: 'Solve 5 Master puzzles.', cur: function () { return save.stats.master; }, max: 5 },
+    { id: 'master25', name: 'Master of Noise', desc: 'Solve 25 Master puzzles.', cur: function () { return save.stats.master; }, max: 25 },
+    { id: 'endless50', name: 'Endless Echo', desc: 'Solve 50 Endless puzzles.', cur: function () { return save.stats.endless; }, max: 50 },
+    { id: 'collector', name: 'Sound Collector', desc: 'Unlock 6 release sounds.', cur: function () { return SOUNDS.filter(function (s) { return soundUnlocked(s.id); }).length; }, max: 6 }
+  ];
+  function achDone(a) { return a.cur() >= a.max; }
+  function checkAchievements(silent) { // announce each achievement once
+    var fresh = [];
+    ACH.forEach(function (a) { if (achDone(a) && !save.seen['a' + a.id]) { save.seen['a' + a.id] = 1; fresh.push(a); } });
+    if (fresh.length) persist();
+    if (fresh.length && !silent) setTimeout(function () { toast('Achievement: ' + fresh[0].name + (fresh.length > 1 ? ' (+' + (fresh.length - 1) + ' more)' : '')); }, 1600);
+    return fresh;
+  }
+
+  /* ----- Master pool: pre-solved puzzles, each shown in one of 8 orientations ----- */
+  function xform(rows, rot, flip) {
+    var g = rows.map(function (r) { return r.split(''); });
+    for (var k = 0; k < rot; k++) { var H = g.length, W = g[0].length, n = []; for (var x = 0; x < W; x++) { var row = []; for (var y = H - 1; y >= 0; y--) row.push(g[y][x]); n.push(row); } g = n; }
+    if (flip) g = g.map(function (r) { return r.slice().reverse(); });
+    var swap = ((rot % 2) ^ (flip ? 1 : 0)) === 1;
+    function dirMap(d) { d = (d + rot) % 4; if (flip) d = d === 0 ? 2 : d === 2 ? 0 : d; return d; }
+    return g.map(function (r) {
+      return r.map(function (ch) {
+        var i;
+        if ((i = '>v<^'.indexOf(ch)) >= 0) return '>v<^'.charAt(dirMap(i));
+        if ((i = 'RDLU'.indexOf(ch)) >= 0) return 'RDLU'.charAt(dirMap(i));
+        if (swap) { if (ch === '/') return '\\'; if (ch === '\\') return '/'; if (ch === 'm') return 'n'; if (ch === 'n') return 'm'; }
+        return ch;
+      }).join('');
+    });
+  }
+  function pcg(seed) { var s = (seed >>> 0) || 1; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+  var MASTER = window.NS_MASTER || [];
+  function masterLevel(idx, variant, label) { // build a playable level from pool entry idx in orientation variant (0-7)
+    var e = MASTER[idx]; if (!e) return null;
+    var rot = variant & 3, flip = variant >> 2 & 1, rows = xform(e.g, rot, flip);
+    var res = Core.solve(Core.parse({ grid: rows }));
+    if (!res.best || res.solutions.length !== 1) { rows = e.g; res = Core.solve(Core.parse({ grid: rows })); variant = 0; }
+    if (!res.best) return null;
+    var wr = pcg(idx * 977 + variant * 31 + 5), w = WORLDS[Math.floor(wr() * WORLDS.length)];
+    return { id: 0, world: w.id, n: 0, title: label || 'Master puzzle', blurb: '', grid: rows, range: 0, par: res.best.flips, solution: res.best.state, solutions: 1, diff: 'master', mref: idx + '.' + variant, tier: e.t };
+  }
+  function masterTierAvail(t) { var a = []; MASTER.forEach(function (e, i) { if (e.t === t) a.push(i); }); return a; }
+  function pickMaster(tier, rnd) { // nearest tier that has puzzles
+    for (var d = 0; d < 5; d++) { var lo = tier - d, hi = tier + d, c = []; if (lo >= 1) c = c.concat(masterTierAvail(lo)); if (hi <= 5 && d > 0) c = c.concat(masterTierAvail(hi)); if (c.length) return c[Math.floor(rnd() * c.length)]; }
+    return -1;
+  }
+  var MASTER_UNLOCK = 150; // stars
+  function masterOpen() { return UNLOCK_ALL || totalStars() >= MASTER_UNLOCK; }
+  function newMaster() {
+    if (!MASTER.length) { toast('Master puzzles are not available.'); return; }
+    if (!save.mseed) { save.mseed = ((Math.random() * 4294967295) | 0) || 1; persist(); }
+    var n = save.stats.master, tier = Math.min(5, 1 + Math.floor(n / 6)), r = pcg(save.mseed + n * 7919 + 17 + (save.mhist.length * 104729));
+    var idx = pickMaster(tier, r), t = idx >= 0 ? MASTER[idx].t : tier;
+    // long-term variety: never repeat a puzzle of this tier until every puzzle of the tier has been shown once
+    var all = masterTierAvail(t), hist = save.mhist, fresh = all.filter(function (i) { return hist.indexOf(i) < 0; });
+    if (!fresh.length && all.length) { hist = hist.filter(function (i) { return all.indexOf(i) < 0; }); fresh = all.slice(); }
+    if (fresh.length) idx = fresh[Math.floor(r() * fresh.length)];
+    var lv = idx >= 0 ? masterLevel(idx, Math.floor(r() * 8), 'Master #' + (n + 1)) : null;
+    if (!lv) { toast('Could not set up a Master puzzle.'); return; }
+    hist.push(idx); save.mhist = hist.slice(-130); persist();
+    startLevel(lv, { mode: 'master' });
+  }
+
+  /* ----- Weekly Smuggler Challenge: five puzzles, rising difficulty, same for everyone, medals ----- */
+  function weekKey(d) { // ISO week, local time: YYYY-Www
+    d = new Date(d ? d.getTime() : Date.now()); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+    var w1 = new Date(d.getFullYear(), 0, 4); var wk = 1 + Math.round(((d.getTime() - w1.getTime()) / 864e5 - 3 + (w1.getDay() + 6) % 7) / 7);
+    return d.getFullYear() + '-W' + (wk < 10 ? '0' : '') + wk;
+  }
+  function weekSeed(k) { var h = 2166136261; for (var i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h >>> 0; }
+  var WEEKLY_NAMES = ['Warm-up whisper', 'Tricky corridor', 'Gate crasher', 'Deep sleeper', 'The big one'];
+  function weeklyLevel(key, idx) {
+    var seed = weekSeed(key) + idx * 104729, lv = null;
+    if (idx === 0) lv = Gen.generate('medium', seed);
+    else if (idx === 1) lv = Gen.generate('hard', seed);
+    else if (MASTER.length) { var r = pcg(seed), p = pickMaster([0, 0, 1, 3, 5][idx], r); if (p >= 0) lv = masterLevel(p, Math.floor(r() * 8), WEEKLY_NAMES[idx]); }
+    if (!lv) lv = Gen.generate('expert', seed);
+    if (lv) { lv.title = WEEKLY_NAMES[idx]; lv.blurb = ''; lv.weekly = key + ':' + idx; }
+    return lv;
+  }
+  function weeklyStars(key) { return (save.weekly[key] || [0, 0, 0, 0, 0]); }
+  function startWeekly(idx) {
+    var key = weekKey(); setTimeout(function () {
+      var lv = weeklyLevel(key, idx); if (!lv) { toast('Could not mix this puzzle. Try again.'); return; }
+      startLevel(lv, { mode: 'weekly', wk: key, wi: idx });
+    }, 20);
+  }
+  function afterSpecial(ref) { // after a daily or weekly win: weekly continues with the next puzzle, daily returns to the right screen
+    if (ref.mode === 'weekly') { if (ref.wi < 4 && weeklyStars(ref.wk)[ref.wi] > 0) startWeekly(ref.wi + 1); else { buildChallenges(); show('challenges'); } }
+    else if (ref.from === 'archive') { buildChallenges(); show('challenges'); }
+    else show('menu');
+  }
+  function recordWeekly(stars) {
+    var k = S.wk, a = save.weekly[k] || [0, 0, 0, 0, 0], was = a.every(function (x) { return x > 0; });
+    if (stars > a[S.wi]) a[S.wi] = stars; save.weekly[k] = a;
+    if (!was && a.every(function (x) { return x > 0; })) save.stats.weeks++;
+    var keys = Object.keys(save.weekly).sort(); while (keys.length > 60) delete save.weekly[keys.shift()]; // keep the save small
+  }
+  function medal(n) { return '<span class="medal m' + n + '" aria-label="' + ['no medal', 'bronze medal', 'silver medal', 'gold medal'][n] + '">' + (n ? '★' : '') + '</span>'; }
+  function daysUntilNextWeek() { var d = new Date(); var n = (8 - (d.getDay() || 7)) % 7 || 7; return n; }
+  function buildChallenges() {
+    var key = weekKey(), a = weeklyStars(key), host = $('weeklyList'); host.innerHTML = '';
+    var done = a.filter(function (x) { return x > 0; }).length;
+    $('weeklyHead').textContent = 'Week ' + key.slice(-2) + ' · ' + done + ' of 5 puzzles · new set in ' + daysUntilNextWeek() + ' day' + (daysUntilNextWeek() > 1 ? 's' : '');
+    for (var i = 0; i < 5; i++) (function (i) {
+      var open = i === 0 || a[i - 1] > 0 || UNLOCK_ALL, b = document.createElement('button');
+      b.className = 'wk' + (open ? '' : ' locked'); b.disabled = !open;
+      b.innerHTML = '<span class="wkn">' + (i + 1) + '</span><span class="wkt"><strong>' + WEEKLY_NAMES[i] + '</strong><small>' + (i < 2 ? 'Warm-up' : 'Master-grade') + '</small></span>' + medal(a[i] || 0);
+      b.addEventListener('click', function () { if (open) { ac(); startWeekly(i); } });
+      host.appendChild(b);
+    })(i);
+    var arc = $('archiveList'); arc.innerHTML = '';
+    var d = new Date(); d.setHours(12, 0, 0, 0);
+    for (var n = 0; n < 14; n++) (function (day) {
+      var k = Gen.dailyKey(day), rec = save.daily[k], b = document.createElement('button');
+      b.className = 'ar' + (rec ? ' done' : '');
+      var lab = n === 0 ? 'Today' : n === 1 ? 'Yesterday' : day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+      b.innerHTML = '<span>' + lab + '</span><small>' + (rec ? '★'.repeat(rec.stars) + ' · ' + rec.taps + ' taps' : 'Play') + '</small>';
+      b.addEventListener('click', function () { ac(); var lv = Gen.dailyFor(k); if (lv) startLevel(lv, { mode: 'daily', from: 'archive' }); else toast('Could not set up that day.'); });
+      arc.appendChild(b);
+    })(new Date(d.getTime() - n * 864e5));
+  }
+
+  /* ----- Profile: rank, stats, sound collection, wave styles, achievements ----- */
+  function buildProfile() {
+    var st = totalStars(), ri = rankIndex(st), nx = RANKS[ri + 1];
+    $('pfRank').textContent = RANKS[ri][0];
+    $('pfNext').textContent = nx ? (nx[1] - st) + ' more stars to ' + nx[0] : 'Top rank reached. You are a Noise Legend.';
+    var lo = RANKS[ri][1], hi = nx ? nx[1] : lo + 1; $('pfBar').style.width = Math.max(4, Math.min(100, Math.round((st - lo) / (hi - lo) * 100))) + '%';
+    var rows = [['Stars', st + ' / ' + LEVELS.length * 3], ['Missions cleared', clearedLevels() + ' / ' + LEVELS.length], ['Perfect missions', perfectLevels()], ['Puzzles solved', save.stats.wins],
+      ['Daily streak', streak() + ' (best ' + Math.max(streak(), save.stats.bestStreak) + ')'], ['Weekly crowns', save.stats.weeks], ['Master solved', save.stats.master], ['Endless solved', save.stats.endless],
+      ['Total taps', save.stats.taps], ['Tries that were too loud', save.stats.fails]];
+    $('pfStats').innerHTML = rows.map(function (r) { return '<div><span>' + r[0] + '</span><strong>' + r[1] + '</strong></div>'; }).join('');
+    var sh = $('pfSounds'); sh.innerHTML = '';
+    SOUNDS.forEach(function (s) {
+      var open = st >= s.need, b = document.createElement('button');
+      b.className = 'snd' + (open ? '' : ' locked') + (open && (save.snd || 'default') === s.id ? ' on' : '');
+      b.innerHTML = '<strong>' + s.name + '</strong><small>' + (open ? s.note : 'Unlocks at ' + s.need + ' stars') + '</small>';
+      b.addEventListener('click', function () { if (!open) return; ac(); save.snd = s.id; persist(); if (s.id !== 'default' && SFX[s.id]) SFX[s.id](); buildProfile(); });
+      sh.appendChild(b);
+    });
+    var wv = $('pfWaves'); wv.innerHTML = '';
+    WAVES.forEach(function (w) {
+      var open = st >= w.need, b = document.createElement('button');
+      b.className = 'snd' + (open ? '' : ' locked') + (open && activeWave().id === w.id ? ' on' : '');
+      b.innerHTML = '<strong>' + w.name + '</strong><small>' + (open ? 'Wave style' : 'Unlocks at ' + w.need + ' stars') + '</small>';
+      b.addEventListener('click', function () { if (!open) return; save.skin = w.id; persist(); sfx('flip'); buildProfile(); });
+      wv.appendChild(b);
+    });
+    $('pfAch').innerHTML = ACH.map(function (a) { var d = achDone(a), c = Math.min(a.max, a.cur()); return '<div class="ach' + (d ? ' done' : '') + '"><strong>' + a.name + '</strong><small>' + a.desc + '</small><em>' + (d ? 'Done' : c + ' / ' + a.max) + '</em></div>'; }).join('');
   }
 
   /* ---------- UI wiring ---------- */
   function buildLevelList() {
     var host = $('levelList'); host.innerHTML = '';
     WORLDS.forEach(function (w) {
+      if (w.id === 'express') { var dv = document.createElement('h2'); dv.className = 'shift'; dv.textContent = 'Expert shifts \u00b7 levels 81-' + LEVELS.length; host.appendChild(dv); }
       var box = document.createElement('div'); box.className = 'world';
       box.innerHTML = '<h3></h3><p></p><div class="lvls"></div>';
-      box.querySelector('h3').textContent = w.name;
+      box.querySelector('h3').textContent = w.name; var tt = THEME[w.id]; if (tt) { box.style.borderLeft = '4px solid ' + tt.wave; box.querySelector('h3').style.color = tt.wave; }
       var wl = LEVELS.filter(function (l) { return l.world === w.id; }), got = 0;
       wl.forEach(function (l) { got += save.stars[l.id] || 0; });
       box.querySelector('p').textContent = w.goal + ' with: ' + w.soundName + ' \u00b7 \u2605 ' + got + '/' + wl.length * 3;
@@ -942,6 +1221,9 @@
   }
   function refreshMenu() {
     var k = Gen.dailyKey(), d = save.daily[k], n = streak();
+    var pr = $('progress'); if (pr) { var done = 0; LEVELS.forEach(function (l) { if (save.stars[l.id] > 0) done++; }); pr.textContent = '\u2605 ' + totalStars() + ' \u00b7 ' + done + ' of ' + LEVELS.length + ' missions cleared'; }
+    var wd = weeklyStars(weekKey()).filter(function (x) { return x > 0; }).length; $('weeklyBadge').textContent = wd >= 5 ? 'Crowned' : wd + ' of 5';
+    var rk = rankName(totalStars()); if (pr) pr.textContent = '\u2605 ' + totalStars() + ' \u00b7 ' + rk + ' \u00b7 ' + clearedLevels() + '/' + LEVELS.length + ' missions \u203a';
     $('dailyBadge').textContent = d ? '★'.repeat(d.stars) + (n > 1 ? ' · ' + n + ' days' : ' done') : 'New today';
   }
   function syncSettings() {
@@ -963,7 +1245,12 @@
 
   $('btnPlay').addEventListener('click', function () { ac(); loadLevel(firstOpen()); });
   $('btnDaily').addEventListener('click', function () { ac(); startDaily(); });
-  $('btnEndless').addEventListener('click', function () { ac(); show('diff'); });
+  $('btnEndless').addEventListener('click', function () { ac(); $('masterNote').textContent = masterOpen() ? 'Gates, portals, deep sleepers' : 'Unlocks at ' + MASTER_UNLOCK + ' stars (you have ' + totalStars() + ')'; $('btnMaster').classList.toggle('locked', !masterOpen()); show('diff'); });
+  $('btnMaster').addEventListener('click', function () { ac(); if (!masterOpen()) { toast('Master unlocks at ' + MASTER_UNLOCK + ' stars. You have ' + totalStars() + '.'); return; } newMaster(); });
+  $('btnWeekly').addEventListener('click', function () { ac(); buildChallenges(); show('challenges'); });
+  $('challengesBack').addEventListener('click', function () { refreshMenu(); show('menu'); });
+  $('progress').addEventListener('click', function () { ac(); buildProfile(); show('profile'); });
+  $('profileBack').addEventListener('click', function () { refreshMenu(); show('menu'); });
   $('btnLevels').addEventListener('click', function () { ac(); buildLevelList(); show('levels'); });
   $('btnSettings').addEventListener('click', function () { syncSettings(); show('settings'); });
   $('diffBack').addEventListener('click', function () { show('menu'); });
@@ -993,6 +1280,40 @@
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000); toast('Backup saved');
     } catch (e) { toast('Could not create the backup'); }
   });
+
+  /* ---------- progress code: stars of every campaign level (2 bits each) + checksum, Crockford base32.
+     The alphabet has no hyphen, so hyphens are only ever separators; merging never lowers a star. ---------- */
+  var B32 = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+  function codeSum(bytes) { var s = 0; bytes.forEach(function (x, k) { s = (s * 31 + x + k * 7) & 255; }); return s; }
+  function progressCode() {
+    var n = LEVELS.length, bytes = [], i, b;
+    for (i = 0; i < n; i += 4) { b = 0; for (var j = 0; j < 4; j++) b |= ((i + j < n ? (save.stars[LEVELS[i + j].id] || 0) : 0) & 3) << (j * 2); bytes.push(b); }
+    bytes.push(codeSum(bytes));
+    var out = '', v = 0, bits = 0;
+    bytes.forEach(function (x) { v = (v << 8) | x; bits += 8; while (bits >= 5) { out += B32[(v >> (bits - 5)) & 31]; bits -= 5; } v &= (1 << bits) - 1; });
+    if (bits) out += B32[(v << (5 - bits)) & 31];
+    return 'NS2-' + out.replace(/(.{6})(?=.)/g, '$1-');
+  }
+  function readProgressCode(txt) {
+    var s = String(txt || '').toUpperCase().replace(/[\s-]+/g, ''); if (s.slice(0, 3) !== 'NS2') return null;
+    s = s.slice(3).replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V'); var bytes = [], v = 0, bits = 0;
+    for (var i = 0; i < s.length; i++) { var d = B32.indexOf(s[i]); if (d < 0) return null; v = (v << 5) | d; bits += 5; if (bits >= 8) { bytes.push((v >> (bits - 8)) & 255); bits -= 8; v &= (1 << bits) - 1; } }
+    var need = Math.ceil(LEVELS.length / 4), sumB = bytes.pop();
+    if (sumB === undefined || bytes.length < 1 || bytes.length > need + 1) return null;
+    if (bytes.length === need + 1) { if (bytes[need] !== 0) return null; bytes.pop(); } // trailing padding byte from the bit packing
+    if (codeSum(bytes) !== sumB) return null;
+    var st = {}; bytes.forEach(function (x, k) { for (var j = 0; j < 4; j++) { var li = k * 4 + j, val = (x >> (j * 2)) & 3; if (li < LEVELS.length && val >= 1 && val <= 3) st[LEVELS[li].id] = val; } });
+    return st;
+  }
+  $('codeCopy').addEventListener('click', function () {
+    var c = progressCode(); $('codeBox').value = c;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(function () { toast('Code copied'); }, function () { toast('Select the code and copy it'); }); else toast('Select the code and copy it');
+  });
+  $('codeUse').addEventListener('click', function () {
+    var st = readProgressCode($('codeBox').value); if (!st) { toast('That code is not valid'); return; }
+    Object.keys(st).forEach(function (k) { if (!(save.stars[k] >= st[k])) save.stars[k] = st[k]; });
+    persist(); syncSettings(); refreshMenu(); buildLevelList(); toast('Progress restored: ' + totalStars() + ' stars');
+  });
   $('setImport').addEventListener('click', function () { $('impFile').click(); });
   $('impFile').addEventListener('change', function () {
     var f = this.files && this.files[0]; this.value = '';
@@ -1004,26 +1325,40 @@
         var o = JSON.parse(String(rd.result)); if (!o || o.app !== 'noise-smuggler' || !o.data) throw 0;
         var before = JSON.parse(JSON.stringify(save)); applySave(o.data);
         Object.keys(before.stars).forEach(function (k) { if (!(save.stars[k] >= before.stars[k])) save.stars[k] = before.stars[k]; }); // never lose stars: keep the best of both
-        Object.keys(before.daily).forEach(function (k) { if (!save.daily[k]) save.daily[k] = before.daily[k]; });
-        save.stats.endless = Math.max(save.stats.endless, before.stats.endless);
+        Object.keys(before.daily).forEach(function (k) { if (betterDaily(before.daily[k], save.daily[k])) save.daily[k] = before.daily[k]; }); // keep whichever daily record is better
+        Object.keys(before.best || {}).forEach(function (k) { if (!save.best[k] || before.best[k] < save.best[k]) save.best[k] = before.best[k]; });
+        Object.keys(before.weekly || {}).forEach(function (k) { var o = save.weekly[k] || [0, 0, 0, 0, 0]; save.weekly[k] = before.weekly[k].map(function (x, i) { return Math.max(x, o[i] || 0); }); });
+        Object.keys(before.stats).forEach(function (k) { save.stats[k] = Math.max(save.stats[k] || 0, before.stats[k] || 0); });
+        Object.keys(before.seen || {}).forEach(function (k) { save.seen[k] = 1; });
         persist(); syncSettings(); refreshMenu(); toast('Progress restored: ' + totalStars() + ' stars');
       } catch (e) { toast('That is not a Noise Smuggler backup'); }
     };
     rd.onerror = function () { toast('Could not read that file'); };
     rd.readAsText(f);
   });
+  function resetProgress() { // everything that is progress goes; sound, volume, vibration, music and the creator draft stay
+    save.stars = {}; save.daily = {}; save.weekly = {}; save.best = {}; save.seen = {}; save.mseed = 0; save.mhist = []; save.skin = 'default'; save.snd = 'default';
+    save.stats = { endless: 0, wins: 0, perfect: 0, taps: 0, master: 0, masterBest: 0, weeks: 0, bestStreak: 0, hints: 0, fails: 0 };
+    hintsCache = {}; try { Mon.resetHistory(); } catch (e) {}
+    persist(); syncSettings(); refreshMenu(); buildLevelList();
+  }
   $('setReset').addEventListener('click', function () {
     var b = this;
     if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Tap to confirm'; setTimeout(function () { delete b.dataset.armed; b.textContent = 'Erase'; }, 4000); return; }
-    delete b.dataset.armed; save.stars = {}; save.daily = {}; save.stats = { endless: 0 }; hintsCache = {}; persist(); b.textContent = 'Erased';
+    delete b.dataset.armed; resetProgress(); b.textContent = 'Erased';
     setTimeout(function () { b.textContent = 'Erase'; }, 1500);
   });
   $('btnRelease').addEventListener('click', function () { ac(); release(); });
   $('btnRestart').addEventListener('click', restart);
   $('btnHint').addEventListener('click', hint);
   $('btnUndo').addEventListener('click', undo);
-  $('wdNext').addEventListener('click', function () { var n = wd.next; hideWorldDone(); if (n >= 0 && S && S.mode === 'campaign') loadLevel(n); });
-  $('linkPrivacy').addEventListener('click', function (e) { e.preventDefault(); show('privacy'); });
+  $('wdNext').addEventListener('click', function () { if (S && S.result && S.result.win && S.mode === 'campaign') advance(); else hideWorldDone(); });
+  function syncPrivacy() { // the privacy text always describes what this build really does
+    var ads = Mon.providerName() !== 'none', pa = $('privAds');
+    $('privNet').hidden = ads; $('privFuture').hidden = ads; pa.hidden = !ads;
+    if (ads) pa.textContent = 'This version of the game shows advertising and/or offers an ad-free purchase through a third-party provider (' + Mon.providerName() + '). That provider may collect device and advertising identifiers and use them as described in its own privacy policy, and may ask for your consent where the law requires it. Ads are never shown while you are solving a puzzle, and you can play without watching any ad. The game itself still uses no account, no analytics of its own and never asks for the microphone; your progress stays in your own browser or device.';
+  }
+  $('linkPrivacy').addEventListener('click', function (e) { e.preventDefault(); syncPrivacy(); show('privacy'); });
   var ED = { W: 7, H: 8, g: [], tool: '#', built: false };
   var ED_TOOLS = [['.', '\u2715', 'Erase'], ['#', '\u2593', 'Wall'], ['>', '\u25b6', 'Sound right'], ['v', '\u25bc', 'Sound down'], ['<', '\u25c0', 'Sound left'], ['^', '\u25b2', 'Sound up'], ['T', '\u2605', 'Star'], ['Z', '\ud83d\ude34', 'Sleeper'], ['H', '\ud83d\udca4', 'Deep sleeper'], ['m', '\u2571', 'Mirror /'], ['n', '\u2572', 'Mirror \\'], ['x', '\u271a', 'Splitter'], ['p', '\u25ce', 'Portal']];
   function edGlyph(c) { for (var i = 0; i < ED_TOOLS.length; i++) if (ED_TOOLS[i][0] === c) return c === '.' ? '' : ED_TOOLS[i][1]; return ''; }
@@ -1074,16 +1409,31 @@
   window.addEventListener('ns:adend', function () { try { if (AC && AC.resume && !save.muted && !document.hidden) AC.resume(); } catch (e) {} });
   $('sheetShare').addEventListener('click', shareResult);
   $('sheetAgain').addEventListener('click', function () { if (S.result && S.result.win) restart(); else retry(); });
+  /* one guarded way to move on after a win: ignores repeat taps while an ad is showing, never skips a level, and
+     does nothing if the player left the screen meanwhile. Both Next and the world-complete button use it. */
+  var advancing = false;
+  function advance() {
+    if (advancing || !S || !S.result || !S.result.win) return;
+    var ref = S; advancing = true;
+    $('sheetNext').disabled = true; $('wdNext').disabled = true;
+    var target = (S.mode === 'campaign' && S.i < LEVELS.length - 1) ? S.i + 1 : -1;
+    var go = function () {
+      advancing = false; $('sheetNext').disabled = false; $('wdNext').disabled = false;
+      if (S !== ref) return; // the player already left
+      hideWorldDone();
+      if (ref.mode === 'campaign') { if (target >= 0) loadLevel(target); else show('menu'); }
+      else if (ref.mode === 'daily' || ref.mode === 'weekly') afterSpecial(ref);
+      else if (ref.mode === 'custom') { if (ref.from === 'editor') shareCustom(ref.lv.code); else show('menu'); }
+      else if (ref.mode === 'master') newMaster();
+      else newEndless(ref.lv.diff);
+    };
+    var done = false, once = function () { if (done) return; done = true; go(); };
+    try { if (Mon && Mon.atBreak) Mon.atBreak({ mode: ref.mode, id: ref.lv.id, key: adKey(ref.lv, ref.mode) }).then(once, once); else once(); } catch (e) { once(); }
+    setTimeout(once, 200000); // last-resort safety only: NSMonetization always resolves on its own (longest ad cap is 180 s)
+  }
   $('sheetNext').addEventListener('click', function () {
-    if (S.result && S.result.win) {
-      var go = function () {
-        if (S.mode === 'campaign') { if (S.i >= LEVELS.length - 1) show('menu'); else loadLevel(S.i + 1); }
-        else if (S.mode === 'daily') show('menu');
-        else if (S.mode === 'custom') { if (S.from === 'editor') shareCustom(S.lv.code); else show('menu'); }
-        else newEndless(S.lv.diff);
-      };
-      if (Mon && Mon.atBreak) Mon.atBreak().then(go, go); else go();
-    } else { retry(); hint(); }
+    if (S.result && S.result.win) advance();
+    else { retry(); hint(); }
   });
 
   canvas.addEventListener('pointerdown', function (e) {
@@ -1129,13 +1479,17 @@
     var prow = rowsOf(pz), pr = prow ? checkPuzzle(prow) : null;
     if (pr && pr.ok) startLevel(pr.lv, { mode: 'custom', from: 'link' }); else toast('That puzzle link is not valid.');
   }
-  var ch = pz ? null : parseChallenge();
+  var lq = pz ? null : /[?&]lv=(\d{1,3})(?:&|$)/.exec(location.search), dq = pz ? null : /[?&]d=(\d{4}-\d{2}-\d{2})(?:&|$)/.exec(location.search), mq = pz ? null : /[?&]m=(\d{1,3})\.([0-7])(?:&|$)/.exec(location.search);
+  if (lq && +lq[1] >= 1 && +lq[1] <= LEVELS.length) loadLevel(+lq[1] - 1);
+  else if (dq) { var dlv = Gen.dailyFor(dq[1]); if (dlv) startLevel(dlv, { mode: 'daily', from: 'archive' }); }
+  else if (mq) { var mlv = masterLevel(+mq[1], +mq[2], 'Shared Master puzzle'); if (mlv) startLevel(mlv, { mode: 'master' }); else toast('That puzzle link is not valid.'); }
+  var ch = (pz || lq || dq || mq) ? null : parseChallenge();
   if (ch) { var clv = Gen.generate(ch.diff, ch.seed); if (clv) startLevel(clv, { mode: 'endless' }); }
 
   if (TESTING) { // hooks for the automated tests only
     window.NSGame = {
-      load: loadLevel, flip: flipMirror, release: release, get: function () { return S; }, save: function () { return save; },
-      daily: startDaily, endless: function (d) { var lv = Gen.generate(d, 12345); startLevel(lv, { mode: 'endless' }); },
+      load: loadLevel, startWeekly: startWeekly, newMaster: newMaster, master: masterLevel, masterCount: function () { return MASTER.length; }, xform: xform, code: progressCode, readCode: readProgressCode, weekKey: weekKey, rankName: rankName, rewards: rewardsBetween, ach: function () { return ACH.map(function (a) { return [a.id, achDone(a)]; }); }, flip: flipMirror, release: release, get: function () { return S; }, save: function () { return save; },
+      drawCount: function () { return drawCount; }, newEndless: newEndless, reset: resetProgress, adKey: adKey, daily: startDaily, endless: function (d) { var lv = Gen.generate(d, 12345); startLevel(lv, { mode: 'endless' }); },
       save: function () { return JSON.parse(JSON.stringify(save)); },
       rec: { // audio capture for promo clips (tests only)
         start: function () { ac(); var d = AC.createMediaStreamDestination(); master.connect(d); var ch = []; var r = new MediaRecorder(d.stream, { mimeType: 'audio/webm' }); r.ondataavailable = function (e) { ch.push(e.data); }; window.__rec = { r: r, ch: ch }; r.start(); return performance.now(); },
